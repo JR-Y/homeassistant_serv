@@ -1,5 +1,5 @@
 require('dotenv').config();
-const express = require('express')
+import express from "express";
 const app = express()
 const http = require('http');
 const server = http.createServer(app);
@@ -8,7 +8,8 @@ const io = new Server(server);
 const bodyParser = require('body-parser')
 const path = require('path');
 const axios = require('axios').default;
-const WebSocket = require("ws");
+import WebSocket from "ws";
+//const WebSocket = require("ws");
 //const ReconnectingWebSocket = require("reconnecting-websocket");
 
 const port = process.env.PORT;
@@ -41,7 +42,9 @@ function clearPersistedQueue() {
     console.log("clear persistance")
     console.log(persistedMessages)
     for (const key in persistedMessages) {
+        //@ts-ignore
         if (Object.hasOwnProperty.call(object, key)) {
+            //@ts-ignore
             const element = object[key];
             ws.send(element);
             delete persistedMessages[key];
