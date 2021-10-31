@@ -220,6 +220,7 @@ app.get('/api/ha/events/', (req, res) => {
 })
 
 app.post(`/api/ha/services/switch/:action`, (req, res) => {
+    console.log("req")
     const action = req.params.action;
     const body = req.body;
     operateSwitch(action, body.entity_id)

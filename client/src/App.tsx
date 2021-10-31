@@ -6,6 +6,7 @@ function App() {
   return (
     <div className="App">
       <button onClick={async () => {
+        let { hostname, port, protocol } = window.location;
         let headers = new Headers();
         headers.append("Content-Type", "application/json");
         const params = {
@@ -14,12 +15,13 @@ function App() {
           body: JSON.stringify({ "entity_id": "switch.ikea_outlet_1_sanna_autopistoke" })
         };
         //@ts-ignore
-        const request = new Request(`http://192.168.35.8:9467/api/ha/services/switch/turn_on`, params);
+        const request = new Request(`/api/ha/services/switch/turn_on`, params);
         const response = await fetch(request);
         console.log(response.body)
 
       }}>TURN ON</button>
       <button onClick={async () => {
+        let { hostname, port, protocol } = window.location;
         let headers = new Headers();
         headers.append("Content-Type", "application/json");
         const params = {
@@ -28,7 +30,7 @@ function App() {
           body: JSON.stringify({ "entity_id": "switch.ikea_outlet_1_sanna_autopistoke" })
         };
         //@ts-ignore
-        const request = new Request(`http://192.168.35.8:9467/api/ha/services/switch/turn_off`, params);
+        const request = new Request(`/api/ha/services/switch/turn_off`, params);
         const response = await fetch(request);
         console.log(response.body)
 
