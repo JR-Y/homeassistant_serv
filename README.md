@@ -1,4 +1,4 @@
-# homeassistant_serv
+# Homeassistant nodejs/react server
 
 
 Why:
