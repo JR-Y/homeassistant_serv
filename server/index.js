@@ -9,6 +9,7 @@ const bodyParser = require('body-parser')
 const path = require('path');
 const axios = require('axios').default;
 const WebSocket = require("ws");
+//const ReconnectingWebSocket = require("reconnecting-websocket");
 
 const port = process.env.PORT;
 const HA_ROOT_URL = `http://${process.env.HA_HOST}:${process.env.HA_PORT}`;
@@ -18,7 +19,9 @@ let HA_SENSOR_INDOOR_TEMPERATURE = process.env.HA_SENSOR_INDOOR_TEMPERATURE;
 
 const ws = new WebSocket(`ws://${process.env.HA_HOST}:${process.env.HA_PORT}/api/websocket`);
 
-
+function isWsOpen() {
+    return ws.readyState === ws.OPEN;
+}
 
 const SWITCH_ACTIONS = ["turn_on", "turn_off"]
 
@@ -32,15 +35,32 @@ const EVENT = "event";
 let message_id = 0;
 let auth_ok;
 let resultQueue = {};
+let persistedMessages = {};
+
+function clearPersistedQueue() {
+    console.log("clear persistance")
+    console.log(persistedMessages)
+    for (const key in persistedMessages) {
+        if (Object.hasOwnProperty.call(object, key)) {
+            const element = object[key];
+            ws.send(element);
+            delete persistedMessages[key];
+        }
+    }
+    console.log(persistedMessages)
+}
 
 //Unique messageID to be returned with homeassistant result messages
 function getMessageId() {
     message_id++;
     return message_id;
 }
-// ws.on("open", (sock) => {
-//     console.log("open")
-// })
+ws.on("open", (sock) => {
+    console.log("open")
+})
+ws.on("close", (sock) => {
+    console.log("close")
+})
 
 ws.on("message", message => {
     try {
@@ -78,6 +98,7 @@ ws.on("message", message => {
     }
 })
 function authenticated() {
+    //clearPersistedQueue()
     subscribeEvents()
 }
 function subscribeEvents() {
@@ -170,7 +191,11 @@ function sendHaMessage(object) {
             ...object
         }
     }
-    ws.send(JSON.stringify(resultQueue[id].message))
+    //if (isWsOpen()) {
+        ws.send(JSON.stringify(resultQueue[id].message))
+    // } else {
+    //     persistedMessages[id] = JSON.stringify(resultQueue[id].message);
+    // }
 }
 
 app.get('/api/ha/states/', (req, res) => {
