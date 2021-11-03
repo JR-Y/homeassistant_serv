@@ -8,7 +8,8 @@ const io = new Server(server);
 const bodyParser = require('body-parser')
 const path = require('path');
 const axios = require('axios').default;
-import WebSocket from "ws";
+//import WebSocket from "ws";
+const WebSocketClient = require('websocket').client;
 //const WebSocket = require("ws");
 //const ReconnectingWebSocket = require("reconnecting-websocket");
 
@@ -18,7 +19,11 @@ const HA_TOKEN = process.env.HA_TOKEN;
 let HA_SENSOR_OUTDOOR_TEMPERATURE = process.env.HA_SENSOR_OUTDOOR_TEMPERATURE;
 let HA_SENSOR_INDOOR_TEMPERATURE = process.env.HA_SENSOR_INDOOR_TEMPERATURE;
 
-const ws = new WebSocket(`ws://${process.env.HA_HOST}:${process.env.HA_PORT}/api/websocket`);
+//const ws = new WebSocket(`ws://${process.env.HA_HOST}:${process.env.HA_PORT}/api/websocket`);
+
+const ws = new WebSocketClient();
+let wsConnection;
+
 
 function isWsOpen() {
     return ws.readyState === ws.OPEN;
@@ -39,8 +44,8 @@ let resultQueue = {};
 let persistedMessages = {};
 
 function clearPersistedQueue() {
-    console.log("clear persistance")
-    console.log(persistedMessages)
+    //console.log("clear persistance")
+    //console.log(persistedMessages)
     for (const key in persistedMessages) {
         //@ts-ignore
         if (Object.hasOwnProperty.call(object, key)) {
@@ -50,7 +55,7 @@ function clearPersistedQueue() {
             delete persistedMessages[key];
         }
     }
-    console.log(persistedMessages)
+    //console.log(persistedMessages)
 }
 
 //Unique messageID to be returned with homeassistant result messages
@@ -58,50 +63,108 @@ function getMessageId() {
     message_id++;
     return message_id;
 }
-ws.on("open", (sock) => {
-    console.log("open")
-})
-ws.on("close", (sock) => {
-    console.log("close")
-})
+ws.on('connectFailed', function (error) {
+    console.log('Connect Error: ' + error.toString());
+});
 
-ws.on("message", message => {
-    try {
-        let json = JSON.parse(message);
-        if (json.type && json.type) {
-            //console.log(JSON.stringify(json))
-            switch (json.type) {
-                case AUTH_REQUIRED:
-                    ws.send(JSON.stringify({
-                        "type": "auth",
-                        "access_token": HA_TOKEN
-                    }))
-                    break;
-                case AUTH_OK:
-                    auth_ok = true;
-                    authenticated();
-                    break;
-                case RESULT:
-                    console.log(resultQueue[json.id])
-                    console.log(json)
-                    if (resultQueue[json.id] && json.success) {
-                        console.log("success")
-                        delete resultQueue[json.id];
-                    }
-                    break;
-                case EVENT:
-
-                    break;
-                default:
-                    break;
+ws.on("connect", connection => {
+    connection.on('error', function (error) {
+        console.log("Connection Error: " + error.toString());
+    });
+    connection.on('close', function () {
+        console.log('echo-protocol Connection Closed');
+        wsConnection = undefined;
+        reconnect();
+    });
+    connection.on("message", message => {
+        const json = JSON.parse(message.utf8Data);
+        //console.log(json.type)
+        try {
+            if (json.type && json.type) {
+                switch (json.type) {
+                    case AUTH_REQUIRED:
+                        connection.sendUTF(JSON.stringify({
+                            "type": "auth",
+                            "access_token": HA_TOKEN
+                        }))
+                        break;
+                    case AUTH_OK:
+                        auth_ok = true;
+                        wsConnection = connection;
+                        //console.log("auth")
+                        authenticated();
+                        break;
+                    case RESULT:
+                        //console.log(resultQueue[json.id])
+                        //console.log(json)
+                        if (resultQueue[json.id] && json.success) {
+                            //console.log("success")
+                            delete resultQueue[json.id];
+                        }
+                        break;
+                    case EVENT:
+                        //console.log(json)
+                        break;
+                    default:
+                        break;
+                }
             }
+        } catch (error) {
+            console.log(error)
         }
-    } catch (error) {
-        console.log(error)
-    }
+    })
+
+
 })
+
+// ws.on("message", message => {
+//     try {
+//         let json = JSON.parse(message);
+//         if (json.type && json.type) {
+//             //console.log(JSON.stringify(json))
+//             switch (json.type) {
+//                 case AUTH_REQUIRED:
+//                     ws.send(JSON.stringify({
+//                         "type": "auth",
+//                         "access_token": HA_TOKEN
+//                     }))
+//                     break;
+//                 case AUTH_OK:
+//                     auth_ok = true;
+//                     authenticated();
+//                     break;
+//                 case RESULT:
+//                     console.log(resultQueue[json.id])
+//                     console.log(json)
+//                     if (resultQueue[json.id] && json.success) {
+//                         console.log("success")
+//                         delete resultQueue[json.id];
+//                     }
+//                     break;
+//                 case EVENT:
+
+//                     break;
+//                 default:
+//                     break;
+//             }
+//         }
+//     } catch (error) {
+//         console.log(error)
+//     }
+// })
+function connectWS() {
+    ws.connect(`ws://${process.env.HA_HOST}:${process.env.HA_PORT}/api/websocket`);
+}
+connectWS();
+function reconnect(){
+    if(!wsConnection){
+        connectWS();
+        setTimeout(reconnect,5000);        
+    }    
+}
+
 function authenticated() {
-    //clearPersistedQueue()
+    clearPersistedQueue()
     subscribeEvents()
 }
 function subscribeEvents() {
@@ -195,7 +258,7 @@ function sendHaMessage(object) {
         }
     }
     //if (isWsOpen()) {
-        ws.send(JSON.stringify(resultQueue[id].message))
+    wsConnection.sendUTF(JSON.stringify(resultQueue[id].message))
     // } else {
     //     persistedMessages[id] = JSON.stringify(resultQueue[id].message);
     // }
