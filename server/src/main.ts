@@ -24,11 +24,6 @@ let HA_SENSOR_INDOOR_TEMPERATURE = process.env.HA_SENSOR_INDOOR_TEMPERATURE;
 const ws = new WebSocketClient();
 let wsConnection;
 
-
-function isWsOpen() {
-    return ws.readyState === ws.OPEN;
-}
-
 const SWITCH_ACTIONS = ["turn_on", "turn_off"]
 
 //HA message types
@@ -117,41 +112,6 @@ ws.on("connect", connection => {
 
 })
 
-// ws.on("message", message => {
-//     try {
-//         let json = JSON.parse(message);
-//         if (json.type && json.type) {
-//             //console.log(JSON.stringify(json))
-//             switch (json.type) {
-//                 case AUTH_REQUIRED:
-//                     ws.send(JSON.stringify({
-//                         "type": "auth",
-//                         "access_token": HA_TOKEN
-//                     }))
-//                     break;
-//                 case AUTH_OK:
-//                     auth_ok = true;
-//                     authenticated();
-//                     break;
-//                 case RESULT:
-//                     console.log(resultQueue[json.id])
-//                     console.log(json)
-//                     if (resultQueue[json.id] && json.success) {
-//                         console.log("success")
-//                         delete resultQueue[json.id];
-//                     }
-//                     break;
-//                 case EVENT:
-
-//                     break;
-//                 default:
-//                     break;
-//             }
-//         }
-//     } catch (error) {
-//         console.log(error)
-//     }
-// })
 function connectWS() {
     ws.connect(`ws://${process.env.HA_HOST}:${process.env.HA_PORT}/api/websocket`);
 }
@@ -257,11 +217,11 @@ function sendHaMessage(object) {
             ...object
         }
     }
-    //if (isWsOpen()) {
+    if (wsConnection) {
     wsConnection.sendUTF(JSON.stringify(resultQueue[id].message))
-    // } else {
-    //     persistedMessages[id] = JSON.stringify(resultQueue[id].message);
-    // }
+     } else {
+         persistedMessages[id] = JSON.stringify(resultQueue[id].message);
+     }
 }
 
 app.get('/api/ha/states/', (req, res) => {
