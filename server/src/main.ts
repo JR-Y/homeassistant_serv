@@ -1,4 +1,5 @@
 require('dotenv').config();
+import fs from 'fs';
 import express from "express";
 const app = express()
 const http = require('http');
@@ -8,16 +9,37 @@ const io = new Server(server);
 const bodyParser = require('body-parser')
 const path = require('path');
 const axios = require('axios').default;
-//import WebSocket from "ws";
+import ical from 'ical';
 const WebSocketClient = require('websocket').client;
-//const WebSocket = require("ws");
-//const ReconnectingWebSocket = require("reconnecting-websocket");
+import { SettingsObject } from './types'
 
+
+//Load file containing user inputs & selections
+const SETTINGS_FILE_PATH = process.env.SETTINGS_FILE_PATH;
+
+let settings: SettingsObject;
+if (!fs.existsSync(SETTINGS_FILE_PATH)) {
+    fs.writeFileSync(SETTINGS_FILE_PATH, JSON.stringify({
+        users: [],
+        icalData: [],
+        devices: [],
+        carHeaterEvents: []
+    }))
+} else {
+    //@ts-ignore
+    settings = JSON.parse(fs.readFileSync(SETTINGS_FILE_PATH))
+    if (!settings.users) { settings.users = [] }
+    if (!settings.icalData) { settings.icalData = [] }
+    if (!settings.states) { settings.states = [] }
+    if (!settings.carHeaterEvents) { settings.carHeaterEvents = [] }
+}
 const port = process.env.PORT;
 const HA_ROOT_URL = `http://${process.env.HA_HOST}:${process.env.HA_PORT}`;
 const HA_TOKEN = process.env.HA_TOKEN;
 let HA_SENSOR_OUTDOOR_TEMPERATURE = process.env.HA_SENSOR_OUTDOOR_TEMPERATURE;
 let HA_SENSOR_INDOOR_TEMPERATURE = process.env.HA_SENSOR_INDOOR_TEMPERATURE;
+
+let OUTDOOR_TEMPERATURE;
 
 //const ws = new WebSocket(`ws://${process.env.HA_HOST}:${process.env.HA_PORT}/api/websocket`);
 
@@ -52,6 +74,49 @@ function clearPersistedQueue() {
     }
     //console.log(persistedMessages)
 }
+function saveSettings() {
+    fs.writeFileSync(SETTINGS_FILE_PATH, JSON.stringify(settings));
+}
+
+function updateIcalData() {
+    const { icalData } = settings;
+    for (let index = 0; index < icalData.length; index++) {
+        const element = icalData[index];
+        axios.get(element.path).then(res => {
+            icalData[index].data = ical.parseICS(res.data);
+            saveSettings();
+        }).catch(err => {
+            console.log(err)
+        })
+    }
+}
+updateIcalData();
+setInterval(updateIcalData, 1000 * 60 * 10);
+
+function handleIcalEvents() {
+    const { icalData } = settings;
+    icalData.forEach((entity, i) => {
+        const { name, path, data } = entity;
+        if (data) {
+            const dt = new Date();
+            for (const key in data) {
+                if (Object.prototype.hasOwnProperty.call(data, key)) {
+                    const ev = data[key];
+                    if (dt.getTime() > ev.start.getTime()) {
+
+                        //Handle events with start time in future
+                    } else {
+                        //Handle events with start time in past
+                    }
+                }
+            }
+        }
+        if (OUTDOOR_TEMPERATURE) { console.log(OUTDOOR_TEMPERATURE) }
+    })
+}
+
+setInterval(handleIcalEvents, 1000 * 60);
+
 
 //Unique messageID to be returned with homeassistant result messages
 function getMessageId() {
@@ -94,11 +159,30 @@ ws.on("connect", connection => {
                         //console.log(json)
                         if (resultQueue[json.id] && json.success) {
                             //console.log("success")
+                            if (resultQueue[json.id].message.type === "get_states") {
+                                saveStates(json.result)
+                            }
                             delete resultQueue[json.id];
+
                         }
                         break;
                     case EVENT:
-                        //console.log(json)
+                        if (json.event.event_type === "state_changed") {
+                            const { entity_id, old_state, new_state, origin,
+                                time_fired, context } = json.event;
+                            for (let index = 0; index < settings.states.length; index++) {
+                                const element = settings.states[index];
+                                if (element.entity_id = entity_id) {
+                                    settings.states[index].state = new_state
+                                    settings.states[index].changed = time_fired
+                                }
+                            }
+
+                            //console.log(json)
+                        } else {
+                            //console.log(json.event.event_type)
+                        }
+
                         break;
                     default:
                         break;
@@ -112,20 +196,28 @@ ws.on("connect", connection => {
 
 })
 
+
 function connectWS() {
     ws.connect(`ws://${process.env.HA_HOST}:${process.env.HA_PORT}/api/websocket`);
 }
-connectWS();
-function reconnect(){
-    if(!wsConnection){
+reconnect();
+function reconnect() {
+    if (!wsConnection) {
         connectWS();
-        setTimeout(reconnect,5000);        
-    }    
+        setTimeout(reconnect, 5000);
+    }
 }
 
 function authenticated() {
     clearPersistedQueue()
     subscribeEvents()
+    getStates()
+}
+
+function getStates() {
+    sendHaMessage({
+        "type": "get_states"
+    })
 }
 function subscribeEvents() {
     sendHaMessage({
@@ -133,6 +225,30 @@ function subscribeEvents() {
         // Optional
         "event_type": "state_changed"
     })
+}
+
+function saveStates(states) {
+    if (states && Array.isArray(states)) {
+        states.forEach(s => {
+            const { entity_id, state, last_changed } = s;
+            const i = settings.states.findIndex((val) => val.entity_id === entity_id);
+            if (i >= 0) {
+                settings.states[i].state = state
+                settings.states[i].changed = last_changed
+                settings.states[i].HA_StateObject = s;
+            } else {
+                settings.states.push({
+                    entity_id: entity_id,
+                    state: state,
+                    changed: last_changed,
+                    HA_StateObject: s
+                })
+            }
+
+        })
+    }
+    saveSettings()
+    console.log(settings.states)
 }
 
 function turnOnLight(entityId) {
@@ -159,8 +275,6 @@ function operateSwitch(service, entityId) {
         })
     }
 }
-
-let OUTDOOR_TEMPERATURE;
 
 app.use(express.static(path.join(__dirname, '..', 'client/build')))
 app.use(bodyParser.json())
@@ -218,10 +332,10 @@ function sendHaMessage(object) {
         }
     }
     if (wsConnection) {
-    wsConnection.sendUTF(JSON.stringify(resultQueue[id].message))
-     } else {
-         persistedMessages[id] = JSON.stringify(resultQueue[id].message);
-     }
+        wsConnection.sendUTF(JSON.stringify(resultQueue[id].message))
+    } else {
+        persistedMessages[id] = JSON.stringify(resultQueue[id].message);
+    }
 }
 
 app.get('/api/ha/states/', (req, res) => {
