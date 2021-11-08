@@ -248,7 +248,7 @@ function saveStates(states) {
         })
     }
     saveSettings()
-    console.log(settings.states)
+    //console.log(settings.states)
 }
 
 function turnOnLight(entityId) {
