@@ -1,45 +1,44 @@
-import React from 'react';
+import React from 'react'
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Link
+} from "react-router-dom";
 import logo from './logo.svg';
 import './App.css';
+import Settings from './components/Settings';
+import Users from './components/Users';
+import Home from './components/Home';
 
-function App() {
+export default function App() {
   return (
     <div className="App">
-      <button onClick={async () => {
-        let { hostname, port, protocol } = window.location;
-        let headers = new Headers();
-        headers.append("Content-Type", "application/json");
-        const params = {
-          method: 'POST',
-          headers: headers,
-          body: JSON.stringify({ "entity_id": "switch.ikea_outlet_1_sanna_autopistoke" })
-        };
-        //@ts-ignore
-        const request = new Request(`/api/ha/services/switch/turn_on`, params);
-        const response = await fetch(request);
-        console.log(response.body)
+      <Router>
+        <div>
+          <nav>
+            <ul>
+              <li>
+                <Link to="/">Home</Link>
+              </li>
+              <li>
+                <Link to="/settings">Settings</Link>
+              </li>
+              <li>
+                <Link to="/users">Users</Link>
+              </li>
+            </ul>
+          </nav>
 
-      }}>TURN ON</button>
-      <button onClick={async () => {
-        let { hostname, port, protocol } = window.location;
-        let headers = new Headers();
-        headers.append("Content-Type", "application/json");
-        const params = {
-          method: 'POST',
-          headers: headers,
-          body: JSON.stringify({ "entity_id": "switch.ikea_outlet_1_sanna_autopistoke" })
-        };
-        //@ts-ignore
-        const request = new Request(`/api/ha/services/switch/turn_off`, params);
-        const response = await fetch(request);
-        console.log(response.body)
-
-      }}>TURN OFF</button>
-      <input type="time" onChange={(ev) => {
-        console.log(ev.target.value)
-      }}></input>
+          {/* A <Switch> looks through its children <Route>s and
+            renders the first one that matches the current URL. */}
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/users" element={<Users />} />
+          </Routes>
+        </div>
+      </Router>
     </div>
   );
 }
-
-export default App;
