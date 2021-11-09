@@ -5,13 +5,24 @@ const app = express()
 const http = require('http');
 const server = http.createServer(app);
 const { Server } = require("socket.io");
-const io = new Server(server);
+const io: Socket = new Server(server);
 const bodyParser = require('body-parser')
 const path = require('path');
 const axios = require('axios').default;
 import ical from 'ical';
 const WebSocketClient = require('websocket').client;
 import { SettingsObject } from './types'
+import { Socket } from 'socket.io';
+
+
+
+io.on("connection", (socket: Socket) => {
+    console.log(`Connected: ${socket}`)
+    socket.emit("settings", settings);
+    // ...
+});
+
+
 
 
 //Load file containing user inputs & selections
@@ -76,6 +87,7 @@ function clearPersistedQueue() {
 }
 function saveSettings() {
     fs.writeFileSync(SETTINGS_FILE_PATH, JSON.stringify(settings));
+    io.emit("settings", settings);
 }
 
 function updateIcalData() {
@@ -396,6 +408,6 @@ app.post(`/api/ha/services/switch/:action`, (req, res) => {
     operateSwitch(action, body.entity_id)
 })
 
-app.listen(port, () => {
+server.listen(port, () => {
     console.log(`homeassist_srv listening at http://localhost:${port}`)
 })
