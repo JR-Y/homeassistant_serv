@@ -276,7 +276,7 @@ function operateSwitch(service, entityId) {
     }
 }
 
-app.use(express.static(path.join(__dirname, '..', 'client/build')))
+app.use(express.static(path.join(__dirname, '..', '..', 'client/build')))
 app.use(bodyParser.json())
 
 app.get('/api/temperature/outdoor', (req, res) => {
@@ -299,6 +299,11 @@ app.get('/api/temperature/outdoor', (req, res) => {
         console.log(err)
         res.status(400).send()
     })
+})
+app.get('/api/clear_states', (req, res) => {
+    settings.states = [];
+    saveSettings()
+    res.send(`ok`);
 })
 app.get('/api/temperature/indoor', (req, res) => {
     axios.get(`${HA_ROOT_URL}/api/states/${HA_SENSOR_INDOOR_TEMPERATURE}`,
