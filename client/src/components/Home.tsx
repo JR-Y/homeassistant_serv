@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useContext, useEffect } from "react";
 import {
     BrowserRouter as Router,
     Routes,
@@ -6,11 +6,11 @@ import {
     Link,
     useParams
 } from "react-router-dom";
+import { Socket } from "socket.io-client";
+import { SocketContext } from "../context/socket";
 
 export default function Home(props: any) {
-
-
-
+    const socket: Socket = useContext(SocketContext);
 
     return (<div>
         <button onClick={async () => {

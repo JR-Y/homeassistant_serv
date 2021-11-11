@@ -11,28 +11,22 @@ const path = require('path');
 const axios = require('axios').default;
 import ical from 'ical';
 const WebSocketClient = require('websocket').client;
-import { SettingsObject } from './types'
+import { addCarHeaterEvent, addDevice, addIcalPath, Device, SettingsObject } from './types'
 import { Socket } from 'socket.io';
-
-
-
-io.on("connection", (socket: Socket) => {
-    console.log(`Connected: ${socket}`)
-    socket.emit("settings", settings);
-    // ...
-});
-
-
-
+import { v4 as uuidv4 } from 'uuid';
 
 //Load file containing user inputs & selections
 const SETTINGS_FILE_PATH = process.env.SETTINGS_FILE_PATH;
+const DATA_FOLDER_PATH = process.env.DATA_FOLDER_PATH;
+const ICALDATA_FILE_PATH = path.join(DATA_FOLDER_PATH, "icaldata.json");
 
 let settings: SettingsObject;
+let states = [];
+let icalData = {};
 if (!fs.existsSync(SETTINGS_FILE_PATH)) {
     fs.writeFileSync(SETTINGS_FILE_PATH, JSON.stringify({
         users: [],
-        icalData: [],
+        icalPaths: [],
         devices: [],
         carHeaterEvents: []
     }))
@@ -40,9 +34,22 @@ if (!fs.existsSync(SETTINGS_FILE_PATH)) {
     //@ts-ignore
     settings = JSON.parse(fs.readFileSync(SETTINGS_FILE_PATH))
     if (!settings.users) { settings.users = [] }
-    if (!settings.icalData) { settings.icalData = [] }
-    if (!settings.states) { settings.states = [] }
     if (!settings.carHeaterEvents) { settings.carHeaterEvents = [] }
+}
+function saveSettings() {
+    fs.writeFileSync(SETTINGS_FILE_PATH, JSON.stringify(settings));
+    emitSettings()
+}
+
+if (!fs.existsSync(ICALDATA_FILE_PATH)) {
+    fs.writeFileSync(ICALDATA_FILE_PATH, JSON.stringify({}))
+} else {
+    //@ts-ignore
+    icalData = JSON.parse(fs.readFileSync(ICALDATA_FILE_PATH))
+}
+function saveIcalData() {
+    fs.writeFileSync(ICALDATA_FILE_PATH, JSON.stringify(icalData));
+    emitIcalData();
 }
 const port = process.env.PORT;
 const HA_ROOT_URL = `http://${process.env.HA_HOST}:${process.env.HA_PORT}`;
@@ -52,7 +59,77 @@ let HA_SENSOR_INDOOR_TEMPERATURE = process.env.HA_SENSOR_INDOOR_TEMPERATURE;
 
 let OUTDOOR_TEMPERATURE;
 
-//const ws = new WebSocket(`ws://${process.env.HA_HOST}:${process.env.HA_PORT}/api/websocket`);
+
+function getOutdoorTemperature() {
+    if (OUTDOOR_TEMPERATURE) {
+        if (OUTDOOR_TEMPERATURE > -50 && OUTDOOR_TEMPERATURE < 60) {
+            return OUTDOOR_TEMPERATURE;
+        }
+    }
+    return 0
+}
+
+function getTemperatureAdjustedCarHeatingTime() {
+    const outdoorTemperature = getOutdoorTemperature();
+    const fullAdditionalTime = 30 * 60 * 1000;// 30 min max additional time in milliseconds
+    switch (true) {
+        case outdoorTemperature < -15:
+            return fullAdditionalTime
+            break;
+        case outdoorTemperature < 0 && outdoorTemperature >= -15:
+            return Math.abs(outdoorTemperature) * fullAdditionalTime / 15
+            break;
+        default:
+            return 0
+            break;
+    }
+}
+
+io.on("connection", (socket: Socket) => {
+    console.log(`Connected: ${socket}`)
+    socket.emit("settings", settings);
+    socket.emit("states", states);
+    socket.emit("icalData", icalData);
+    socket.on('add_device', (data: addDevice) => {
+        let id = uuidv4();
+        settings.devices.push({ uuid: id, ...data });
+        saveSettings()
+    })
+    socket.on('add_calendar', (data: addIcalPath) => {
+        let id = uuidv4();
+        settings.icalPaths.push({ uuid: id, ...data });
+        saveSettings()
+    })
+    socket.on('delete_calendar', (uuid: string) => {
+        settings.icalPaths = settings.icalPaths.filter((item) => item.uuid !== uuid);
+        saveSettings()
+    })
+    socket.on('add_calendar', (data: addIcalPath) => {
+        let id = uuidv4();
+        settings.icalPaths.push({ uuid: id, ...data });
+        saveSettings()
+    })
+    socket.on('add_carHeaterHevent', (data: addCarHeaterEvent) => {
+        let id = uuidv4();
+        settings.carHeaterEvents.push({ uuid: id, ...data });
+        saveSettings()
+    })
+    socket.on('delete_carHeaterHevent', (uuid: string) => {
+        settings.carHeaterEvents = settings.carHeaterEvents.filter((item) => item.uuid !== uuid);
+        saveSettings()
+    })
+});
+function emitStates() {
+    io.emit("states", states);
+}
+function emitSettings() {
+    io.emit("settings", settings);
+}
+function emitIcalData() {
+    io.emit("icalData", icalData);
+}
+
+
 
 const ws = new WebSocketClient();
 let wsConnection;
@@ -85,18 +162,15 @@ function clearPersistedQueue() {
     }
     //console.log(persistedMessages)
 }
-function saveSettings() {
-    fs.writeFileSync(SETTINGS_FILE_PATH, JSON.stringify(settings));
-    io.emit("settings", settings);
-}
+
 
 function updateIcalData() {
-    const { icalData } = settings;
-    for (let index = 0; index < icalData.length; index++) {
-        const element = icalData[index];
+    const { icalPaths } = settings;
+    for (let index = 0; index < icalPaths.length; index++) {
+        const element = icalPaths[index];
         axios.get(element.path).then(res => {
-            icalData[index].data = ical.parseICS(res.data);
-            saveSettings();
+            icalData[element.uuid] = ical.parseICS(res.data);
+            saveIcalData();
         }).catch(err => {
             console.log(err)
         })
@@ -106,14 +180,14 @@ updateIcalData();
 setInterval(updateIcalData, 1000 * 60 * 10);
 
 function handleIcalEvents() {
-    const { icalData } = settings;
-    icalData.forEach((entity, i) => {
-        const { name, path, data } = entity;
-        if (data) {
+    const { icalPaths } = settings;
+    icalPaths.forEach((icalPath, i) => {
+        const { uuid, name, path } = icalPath;
+        if (icalData[uuid]) {
             const dt = new Date();
-            for (const key in data) {
-                if (Object.prototype.hasOwnProperty.call(data, key)) {
-                    const ev = data[key];
+            for (const key in icalData[uuid]) {
+                if (Object.prototype.hasOwnProperty.call(icalData[uuid], key)) {
+                    const ev = icalData[uuid][key];
                     if (dt.getTime() > ev.start.getTime()) {
 
                         //Handle events with start time in future
@@ -138,7 +212,6 @@ function getMessageId() {
 ws.on('connectFailed', function (error) {
     console.log('Connect Error: ' + error.toString());
 });
-
 ws.on("connect", connection => {
     connection.on('error', function (error) {
         console.log("Connection Error: " + error.toString());
@@ -179,20 +252,24 @@ ws.on("connect", connection => {
                         }
                         break;
                     case EVENT:
-                        if (json.event.event_type === "state_changed") {
-                            const { entity_id, old_state, new_state, origin,
-                                time_fired, context } = json.event;
-                            for (let index = 0; index < settings.states.length; index++) {
-                                const element = settings.states[index];
-                                if (element.entity_id = entity_id) {
-                                    settings.states[index].state = new_state
-                                    settings.states[index].changed = time_fired
+                        if (json.event.event_type === "state_changed" && json.event.data && json.event.data.entity_id) {
+                            const { entity_id, new_state } = json.event.data;
+                            if (entity_id) {
+                                const i = states.findIndex((val) => val.entity_id === entity_id);
+                                if (i >= 0) {
+                                    console.log(`Updated state: ${new_state}`)
+                                    states[i] = new_state
+                                } else {
+                                    console.log(`Added to states: ${new_state}`)
+                                    states.push(new_state)
                                 }
+                                emitStates();
+                            } else {
+                                console.log(json)
                             }
 
-                            //console.log(json)
                         } else {
-                            //console.log(json.event.event_type)
+                            console.log(json)
                         }
 
                         break;
@@ -239,24 +316,16 @@ function subscribeEvents() {
     })
 }
 
-function saveStates(states) {
-    if (states && Array.isArray(states)) {
-        states.forEach(s => {
-            const { entity_id, state, last_changed } = s;
-            const i = settings.states.findIndex((val) => val.entity_id === entity_id);
+function saveStates(newStates) {
+    if (newStates && Array.isArray(newStates)) {
+        newStates.forEach(s => {
+            const { entity_id } = s;
+            const i = states.findIndex((val) => val.entity_id === entity_id);
             if (i >= 0) {
-                settings.states[i].state = state
-                settings.states[i].changed = last_changed
-                settings.states[i].HA_StateObject = s;
+                states[i] = s
             } else {
-                settings.states.push({
-                    entity_id: entity_id,
-                    state: state,
-                    changed: last_changed,
-                    HA_StateObject: s
-                })
+                states.push(s)
             }
-
         })
     }
     saveSettings()
@@ -313,7 +382,7 @@ app.get('/api/temperature/outdoor', (req, res) => {
     })
 })
 app.get('/api/clear_states', (req, res) => {
-    settings.states = [];
+    states = [];
     saveSettings()
     res.send(`ok`);
 })
@@ -337,6 +406,11 @@ app.get('/api/temperature/indoor', (req, res) => {
         console.log(err)
         res.status(400).send()
     })
+})
+app.post('/api/addDevice', (req, res) => {
+    console.log(req.body)
+
+    res.json({ status: "added" });
 })
 
 function sendHaMessage(object) {

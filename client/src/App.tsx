@@ -13,9 +13,11 @@ import Home from './components/Home';
 import axios from 'axios';
 import { Socket } from "socket.io-client";
 import { SocketContext, socket } from './context/socket';
+import { SettingsObject, State } from './types'
 
 export default function App() {
-  const [settings, setSettings] = useState({});
+  const [settings, setSettings] = useState<SettingsObject>({ users: [], icalPaths: [], devices: [], carHeaterEvents: [] });
+  const [states, setStates] = useState([]);
   //const socketC = useContext(SocketContext);
 
   useEffect(() => {
@@ -24,9 +26,13 @@ export default function App() {
       console.log(socket.id); // x8WIv7-mJelg7on_ALbx
     });
 
-    socket.on("settings", (data: any) => {
+    socket.on("settings", (data: SettingsObject) => {
       setSettings(data)
-      console.log(data)
+      console.log(`SETTINGS: ${data}`)
+    })
+    socket.on("states", (data) => {
+      setStates(data)
+      console.log(`STATES: ${data}`)
     })
     return () => {
       socket.removeAllListeners();
@@ -55,8 +61,8 @@ export default function App() {
             renders the first one that matches the current URL. */}
             <Routes>
               <Route path="/" element={<Home />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/users" element={<Users />} />
+              <Route path="/settings" element={<Settings settings={settings} states={states} />} />
+              <Route path="/users" element={<Users settings={settings} />} />
             </Routes>
           </div>
         </Router>

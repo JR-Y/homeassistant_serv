@@ -5,14 +5,9 @@ export interface User {
 
 export interface IcalPath {
     uuid: string
-    name?: string
+    name: string
     path: string
 }
-export interface addIcalPath {
-    name?: string
-    path: string
-}
-
 export interface IcalData {
 }
 

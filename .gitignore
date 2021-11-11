@@ -8,3 +8,4 @@ client/.yarn
 serever/.yarn
 /data_examples
 settings.json
+icaldata.json
