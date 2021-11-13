@@ -18,6 +18,7 @@ import { SettingsObject, State } from './types'
 export default function App() {
   const [settings, setSettings] = useState<SettingsObject>({ users: [], icalPaths: [], devices: [], carHeaterEvents: [] });
   const [states, setStates] = useState([]);
+  const [icalData, setIcalData] = useState([]);
   //const socketC = useContext(SocketContext);
 
   useEffect(() => {
@@ -33,6 +34,10 @@ export default function App() {
     socket.on("states", (data) => {
       setStates(data)
       console.log(`STATES: ${data}`)
+    })
+    socket.on("icalData", (data) => {
+      setIcalData(data)
+      console.log(`icalData: ${data}`)
     })
     return () => {
       socket.removeAllListeners();
@@ -61,7 +66,7 @@ export default function App() {
             renders the first one that matches the current URL. */}
             <Routes>
               <Route path="/" element={<Home />} />
-              <Route path="/settings" element={<Settings settings={settings} states={states} />} />
+              <Route path="/settings" element={<Settings settings={settings} states={states} icalData={icalData} />} />
               <Route path="/users" element={<Users settings={settings} />} />
             </Routes>
           </div>

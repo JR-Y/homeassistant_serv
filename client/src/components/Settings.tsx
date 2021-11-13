@@ -8,15 +8,15 @@ import {
 } from "react-router-dom";
 import { Socket } from "socket.io-client";
 import { SocketContext } from "../context/socket";
-import { addDevice, SettingsObject, State } from "../types";
+import { addDevice, CarHeaterEvent, IcalData, SettingsObject, State, StateCarHeaterEvent } from "../types";
 
 interface NameMap { [entity_id: string]: string }
 
 
-export default function Settings(props: { settings: SettingsObject, states: State[] }) {
+export default function Settings(props: { settings: SettingsObject, states: State[], icalData: IcalData[] }) {
     const [names, setNames] = useState<NameMap>({});
     const [calendar, setCalendar] = useState({ name: "", path: "" });
-    const [carHeaterEvent, setCarHeaterEvent] = useState({ name: "", ical_uuid: "", device_uuid: "", tags: [] });
+    const [carHeaterEvent, setCarHeaterEvent] = useState<StateCarHeaterEvent>({ name: "", ical_uuid: "", device_uuid: "", tags: [] });
     const socket: Socket = useContext(SocketContext);
 
     function handleAddDeviceClick(device: addDevice) {
@@ -38,9 +38,20 @@ export default function Settings(props: { settings: SettingsObject, states: Stat
     }
 
     function handleAddCarHeaterLinkClick() {
-        socket.emit('add_carHeaterHevent', carHeaterEvent, (resp: any) => {
+        socket.emit('add_carHeaterEvent', carHeaterEvent, (resp: any) => {
             console.log(resp)
         })
+    }
+
+    function getTagSuggestions(ical_uuid: string): string[] {
+        if (props.icalData) {
+            const i = props.icalData.findIndex(val => val.uuid === ical_uuid);
+            if (i > -1) {
+                return props.icalData[i].tagSuggestions;
+            }
+
+        }
+        return [];
     }
 
     return (<div style={{ margin: "10px" }}>
@@ -51,6 +62,7 @@ export default function Settings(props: { settings: SettingsObject, states: Stat
                     <tr>
                         <th scope="col">uuid</th>
                         <th scope="col">Name</th>
+                        <th scope="col">Travel time</th>
                         <th scope="col">Tags</th>
                         <th scope="col">Device</th>
                         <th scope="col">Caledar</th>
@@ -61,11 +73,23 @@ export default function Settings(props: { settings: SettingsObject, states: Stat
                         <th scope="row"></th>
                         <td><input style={{ width: "100%" }} value={carHeaterEvent.name || ""} onChange={(event) => setCarHeaterEvent({ ...carHeaterEvent, name: event.target.value })}></input></td>
                         <td>
-
+                            <div style={{ maxHeight: "200px", width: "100%", overflow: "auto", cursor: "pointer" }}>
+                                {getTagSuggestions(carHeaterEvent.ical_uuid).map((tag, i) => {
+                                    return (<div key={i} style={{ width: "100%", backgroundColor: carHeaterEvent.tags.includes(tag) ? "lightgray" : undefined }} onClick={() => {
+                                        let tags: string[] = carHeaterEvent.tags;
+                                        if (carHeaterEvent.tags.includes(tag)) {
+                                            tags = carHeaterEvent.tags.filter(t => t != tag)
+                                        } else {
+                                            tags.push(tag);
+                                        }
+                                        setCarHeaterEvent({ ...carHeaterEvent, tags: tags })
+                                    }}>{tag}</div>)
+                                })}
+                            </div>
                         </td>
                         <td>
-                            <select value={carHeaterEvent.device_uuid} className="form-select" aria-label="Default select example" onChange={(e) => setCarHeaterEvent({ ...carHeaterEvent, device_uuid: e.target.value })}>
-                            <option key={"i"} value={""}></option>
+                            <select value={carHeaterEvent.device_uuid} className="form-select" aria-label="Default select" onChange={(e) => setCarHeaterEvent({ ...carHeaterEvent, device_uuid: e.target.value })}>
+                                <option key={"i"} value={""}></option>
                                 {props.settings.devices.map((device, i) => {
                                     return (<option key={i} value={device.uuid}>{device.name}</option>
                                     )
@@ -73,7 +97,7 @@ export default function Settings(props: { settings: SettingsObject, states: Stat
                             </select>
                         </td>
                         <td>
-                            <select value={carHeaterEvent.ical_uuid} className="form-select" aria-label="Default select example" onChange={(e) => setCarHeaterEvent({ ...carHeaterEvent, ical_uuid: e.target.value })}>
+                            <select value={carHeaterEvent.ical_uuid} className="form-select" aria-label="Default select" onChange={(e) => setCarHeaterEvent({ ...carHeaterEvent, ical_uuid: e.target.value })}>
                                 <option key={"i"} value={""}></option>
                                 {props.settings.icalPaths.map((cal, i) => {
                                     return (<option key={i} value={cal.uuid}>{cal.name}</option>
@@ -86,12 +110,38 @@ export default function Settings(props: { settings: SettingsObject, states: Stat
                     {props.settings.carHeaterEvents.map((item, i) => {
                         return (<tr key={i}>
                             <th scope="row">{item.uuid}</th>
-                            <td>{item.name}</td>
-                            <td>{item.tags}</td>
+                            <td><input style={{ width: "100%" }} value={carHeaterEvent.name || ""} onChange={(e) => {
+                                socket.emit('update_carHeaterEvent', { uuid: item.uuid, name: e.target.value }, (resp: any) => {
+                                    console.log(resp)
+                                })
+                            }}></input></td>
+                            <td><input type="time" value={item.startBeforeTime} min="00:10" max="5:00" onChange={e => {
+                                socket.emit('update_carHeaterEvent', { uuid: item.uuid, startBeforeTime: e.target.value }, (resp: any) => {
+                                    console.log(resp)
+                                })
+                            }}></input></td>
+                            <td>
+                                <div style={{ maxHeight: "200px", width: "100%", overflow: "auto", cursor: "pointer" }}>
+                                    {getTagSuggestions(item.ical_uuid).map((tag, i) => {
+                                        return (<div key={i} style={{ width: "100%", backgroundColor: item.tags?.includes(tag) ? "lightgray" : undefined }} onClick={() => {
+                                            let tags: string[] = item.tags || [];
+                                            if (item.tags?.includes(tag)) {
+                                                tags = item.tags?.filter(t => t != tag)
+                                            } else {
+                                                tags.push(tag);
+                                            }
+                                            socket.emit('update_carHeaterEvent', { uuid: item.uuid, tags: tags }, (resp: any) => {
+                                                console.log(resp)
+                                            })
+                                        }}>{tag}</div>)
+                                    })}
+                                </div>
+                            </td>
+                            <td>{item.tags?.map((tag, i) => <div key={i}>{tag}</div>)}</td>
                             <td>{item.ical_uuid}</td>
                             <td>{item.device_uuid}</td>
                             <td><button onClick={() => {
-                                socket.emit('delete_carHeaterHevent', item.uuid, (resp: any) => {
+                                socket.emit('delete_carHeaterEvent', item.uuid, (resp: any) => {
                                     console.log(resp)
                                 })
                             }}>Delete event</button></td>

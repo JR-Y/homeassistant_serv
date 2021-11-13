@@ -9,7 +9,12 @@ export interface IcalPath {
     path: string
 }
 export interface IcalData {
+    uuid: string
+    data: object
+    tagSuggestions: string[]
 }
+
+
 
 export interface State {
     entity_id: string
@@ -32,19 +37,36 @@ export interface addDevice {
 export interface CarHeaterEvent {
     uuid: string
     name?: string
-    tags?: string[]
+    tags: string[]
     ical_uuid: string
     device_uuid: string
-    startBeforeMS?: number
-    endAfterStartMS?: number
+    startBeforeTime?: string
+    endAfterStartTime?: string
+}
+export interface StateCarHeaterEvent {
+    name?: string
+    tags: string[]
+    ical_uuid: string
+    device_uuid: string
+    startBeforeTime?: string
+    endAfterStartTime?: string
 }
 export interface addCarHeaterEvent {
     name?: string
     tags?: string[]
     ical_uuid: string
     device_uuid: string
-    startBeforeMS?: number
-    endAfterStartMS?: number
+    startBeforeTime?: string
+    endAfterStartTime?: string
+}
+export interface updateCarHeaterEvent {
+    uuid: string
+    name?: string
+    tags?: string[]
+    ical_uuid?: string
+    device_uuid?: string
+    startBeforeTime?: string
+    endAfterStartTime?: string
 }
 
 

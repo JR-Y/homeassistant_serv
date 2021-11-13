@@ -11,7 +11,7 @@ const path = require('path');
 const axios = require('axios').default;
 import ical from 'ical';
 const WebSocketClient = require('websocket').client;
-import { addCarHeaterEvent, addDevice, addIcalPath, Device, SettingsObject } from './types'
+import { addCarHeaterEvent, addDevice, addIcalPath, Device, IcalData, SettingsObject, updateCarHeaterEvent } from './types'
 import { Socket } from 'socket.io';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -22,7 +22,7 @@ const ICALDATA_FILE_PATH = path.join(DATA_FOLDER_PATH, "icaldata.json");
 
 let settings: SettingsObject;
 let states = [];
-let icalData = {};
+let icalData: IcalData[] = [];
 if (!fs.existsSync(SETTINGS_FILE_PATH)) {
     fs.writeFileSync(SETTINGS_FILE_PATH, JSON.stringify({
         users: [],
@@ -109,12 +109,19 @@ io.on("connection", (socket: Socket) => {
         settings.icalPaths.push({ uuid: id, ...data });
         saveSettings()
     })
-    socket.on('add_carHeaterHevent', (data: addCarHeaterEvent) => {
+    socket.on('add_carHeaterEvent', (data: addCarHeaterEvent) => {
         let id = uuidv4();
         settings.carHeaterEvents.push({ uuid: id, ...data });
         saveSettings()
     })
-    socket.on('delete_carHeaterHevent', (uuid: string) => {
+    socket.on('update_carHeaterEvent', (data: updateCarHeaterEvent) => {
+        const i = settings.carHeaterEvents.findIndex(c => c.uuid == data.uuid);
+        if (i > -1) {
+            settings.carHeaterEvents[i] = { ...settings.carHeaterEvents[i], ...data }
+        }
+        saveSettings()
+    })
+    socket.on('delete_carHeaterEvent', (uuid: string) => {
         settings.carHeaterEvents = settings.carHeaterEvents.filter((item) => item.uuid !== uuid);
         saveSettings()
     })
@@ -129,7 +136,21 @@ function emitIcalData() {
     io.emit("icalData", icalData);
 }
 
+function getMillisecondsFromTime(time: string): number {
+    try {
+        const valid = /^([0-1][0-9]|2[0-3]):([0-5][0-9])$/.test(time);
+        if (valid) {
+            const [h, m] = time.split(":");
+            const hour = 60 * 60 * 1000;
+            const minute = 60 * 1000;
+            return (Number.parseInt(h) * hour) + (Number.parseInt(m) * minute);
+        }
+    } catch (error) {
+        console.log(error)
+        return 0
+    }
 
+}
 
 const ws = new WebSocketClient();
 let wsConnection;
@@ -169,7 +190,13 @@ function updateIcalData() {
     for (let index = 0; index < icalPaths.length; index++) {
         const element = icalPaths[index];
         axios.get(element.path).then(res => {
-            icalData[element.uuid] = ical.parseICS(res.data);
+            const data = ical.parseICS(res.data);
+            const i = icalData.findIndex(val => val.uuid === element.uuid);
+            if (i < 0) {
+                icalData.push({ uuid: element.uuid, data: data, tagSuggestions: generateTagSuggestions(data) })
+            } else {
+                icalData[i] = { uuid: element.uuid, data: data, tagSuggestions: generateTagSuggestions(data) };
+            }
             saveIcalData();
         }).catch(err => {
             console.log(err)
@@ -179,15 +206,41 @@ function updateIcalData() {
 updateIcalData();
 setInterval(updateIcalData, 1000 * 60 * 10);
 
+function generateTagSuggestions(data) {
+    let suggestions = [];
+    for (const key in data) {
+        if (Object.prototype.hasOwnProperty.call(data, key)) {
+            const ev = data[key];
+            const { summary } = ev;
+            if (summary && typeof summary === 'string') {
+                const words = summary.toLowerCase().split(' ');
+                words.forEach(word => {
+                    if (!suggestions.includes(word)) {
+                        suggestions.push(word)
+                    }
+                })
+            }
+        }
+    }
+    return suggestions;
+}
+
+function getTags(summary): string[] {
+    if (summary && typeof summary === 'string') {
+        return summary.toLowerCase().split(' ');
+    }
+    return []
+}
+
 function handleIcalEvents() {
     const { icalPaths } = settings;
     icalPaths.forEach((icalPath, i) => {
         const { uuid, name, path } = icalPath;
         if (icalData[uuid]) {
             const dt = new Date();
-            for (const key in icalData[uuid]) {
-                if (Object.prototype.hasOwnProperty.call(icalData[uuid], key)) {
-                    const ev = icalData[uuid][key];
+            for (const key in icalData[uuid].data) {
+                if (Object.prototype.hasOwnProperty.call(icalData[uuid].data, key)) {
+                    const ev = icalData[uuid].data[key];
                     if (dt.getTime() > ev.start.getTime()) {
 
                         //Handle events with start time in future
@@ -200,9 +253,64 @@ function handleIcalEvents() {
         if (OUTDOOR_TEMPERATURE) { console.log(OUTDOOR_TEMPERATURE) }
     })
 }
+//setInterval(handleIcalEvents, 1000 * 60);
 
-setInterval(handleIcalEvents, 1000 * 60);
+function handleCarHeaterEvents() {
+    const { icalPaths, carHeaterEvents } = settings;
+    carHeaterEvents.forEach(carHeaterEvent => {
+        const { startBeforeTime, ical_uuid, tags, device_uuid } = carHeaterEvent;
+        const startBeforeMS = startBeforeTime ? getMillisecondsFromTime(startBeforeTime) : 0;
+        const temperatureAddedTime = getTemperatureAdjustedCarHeatingTime();
+        console.log(temperatureAddedTime);
+        const defaultHeatingTime = 30 * 60 * 1000;//30 min
+        console.log(temperatureAddedTime);
+        const totalHeatingStartBeforeTime: number = startBeforeMS + defaultHeatingTime + temperatureAddedTime;
+        if (ical_uuid) {
+            let ical = icalData.find(v => v.uuid == ical_uuid);
+            if (ical) {
+                const { data } = ical;
+                const dt = new Date();
+                for (const key in data) {
+                    if (Object.prototype.hasOwnProperty.call(data, key)) {
+                        const ev = data[key];
+                        const event_tags = getTags(ev.summary);
+                        if (tags && event_tags.length > 0 && event_tags.find(t => tags.includes(t))) {
+                            if (dt.getTime() > ev.start.getTime() - (1000 * 60 * 60 * 2) && ev.end.getTime() > dt.getTime()) {
+                                //console.log(`Heatingevent starting in ${ev.start.getTime() - totalHeatingStartBeforeTime - dt.getTime()}`)
+                                const currentTime = dt.getTime();
+                                const startTime = ev.start.getTime() - totalHeatingStartBeforeTime;
+                                const endTime = ev.start.getTime() - startBeforeMS;
+                                if (currentTime > startTime && currentTime < endTime) {
+                                    //Heating should be running
+                                    console.log("heating should be running")
+                                    const device = settings.devices.find(d => d.uuid === device_uuid);
+                                    if (device) {
+                                        const state = states.find(state => state.entity_id === device.entity_id);
+                                        if (state && state.state && state.state !== "on") {
+                                            operateSwitch("turn_on", device.entity_id);
+                                        }
+                                    }
+                                } else {
+                                    console.log("heating should be stopped")
+                                    const device = settings.devices.find(d => d.uuid === device_uuid);
+                                    if (device) {
+                                        const state = states.find(state => state.entity_id === device.entity_id);
+                                        if (state && state.state && state.state !== "off") {
+                                            operateSwitch("turn_off", device.entity_id);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
 
+            }
+
+        }
+    })
+}
+setInterval(handleCarHeaterEvents, 1000 * 60);
 
 //Unique messageID to be returned with homeassistant result messages
 function getMessageId() {

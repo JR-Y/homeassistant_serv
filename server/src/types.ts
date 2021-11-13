@@ -14,6 +14,9 @@ export interface addIcalPath {
 }
 
 export interface IcalData {
+    uuid: string
+    data: object
+    tagSuggestions: string[]
 }
 
 export interface State {
@@ -40,16 +43,25 @@ export interface CarHeaterEvent {
     tags?: string[]
     ical_uuid: string
     device_uuid: string
-    startBeforeMS?: number
-    endAfterStartMS?: number
+    startBeforeTime?: string
+    endAfterStartTime?: string
 }
 export interface addCarHeaterEvent {
     name?: string
     tags?: string[]
     ical_uuid: string
     device_uuid: string
-    startBeforeMS?: number
-    endAfterStartMS?: number
+    startBeforeTime?: string
+    endAfterStartTime?: string
+}
+export interface updateCarHeaterEvent {
+    uuid: string
+    name?: string
+    tags?: string[]
+    ical_uuid?: string
+    device_uuid?: string
+    startBeforeTime?: string
+    endAfterStartTime?: string
 }
 
 
