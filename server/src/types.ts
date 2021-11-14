@@ -46,6 +46,7 @@ export interface CarHeaterEvent {
     device_uuid: string
     startBeforeTime?: string
     endAfterStartTime?: string
+    upComingEvents?: upComingCarHeaterEvent[]
 }
 export interface addCarHeaterEvent {
     name?: string
@@ -63,6 +64,13 @@ export interface updateCarHeaterEvent {
     device_uuid?: string
     startBeforeTime?: string
     endAfterStartTime?: string
+}
+
+export interface upComingCarHeaterEvent {
+    name: string
+    eventStart: Date
+    heatingStart: Date
+    heatingEnd: Date
 }
 
 

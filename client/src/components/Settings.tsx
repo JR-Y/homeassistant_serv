@@ -6,7 +6,7 @@ import { addDevice, CarHeaterEvent, IcalData, SettingsObject, State, StateCarHea
 interface NameMap { [entity_id: string]: string }
 
 
-export default function Settings(props: { settings: SettingsObject, states: State[], icalData: IcalData[] }) {
+export default function Settings(props: { isMobile: boolean, settings: SettingsObject, states: State[], icalData: IcalData[] }) {
     const [names, setNames] = useState<NameMap>({});
     const [editTags, setEditTags] = useState<string[]>([]);
     const [editNames, setEditNames] = useState<string[]>([]);

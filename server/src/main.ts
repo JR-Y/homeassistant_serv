@@ -257,10 +257,9 @@ function handleIcalEvents() {
     })
 }
 //setInterval(handleIcalEvents, 1000 * 60);
-
 function handleCarHeaterEvents() {
     const { icalPaths, carHeaterEvents } = settings;
-    carHeaterEvents.forEach(carHeaterEvent => {
+    carHeaterEvents.forEach((carHeaterEvent, heaterEventIndex) => {
         const { startBeforeTime, ical_uuid, tags, device_uuid } = carHeaterEvent;
         const startBeforeMS = startBeforeTime ? getMillisecondsFromTime(startBeforeTime) : 0;
         console.log(startBeforeMS);
@@ -273,16 +272,23 @@ function handleCarHeaterEvents() {
             if (ical) {
                 const { data } = ical;
                 const dt = new Date();
+                let upComingEvents = [];
                 for (const key in data) {
                     if (Object.prototype.hasOwnProperty.call(data, key)) {
                         const ev = data[key];
                         const event_tags = getTags(ev.summary);
                         if (tags && event_tags.length > 0 && event_tags.find(t => tags.includes(t))) {
-                            if (dt.getTime() > ev.start.getTime() - (1000 * 60 * 60 * 2) && ev.end.getTime() > dt.getTime()) {
+                            if (dt.getTime() > ev.start.getTime() - (1000 * 60 * 60 * 24) && ev.end.getTime() > dt.getTime()) {
                                 //console.log(`Heatingevent starting in ${ev.start.getTime() - totalHeatingStartBeforeTime - dt.getTime()}`)
                                 const currentTime = dt.getTime();
                                 const startTime = ev.start.getTime() - totalHeatingStartBeforeTime;
                                 const endTime = ev.start.getTime() - startBeforeMS;
+                                upComingEvents.push({
+                                    name: ev.summary,
+                                    eventStart: ev.start,
+                                    heatingStart: new Date(startTime),
+                                    heatingEnd: new Date(endTime)
+                                })
                                 if (currentTime > startTime && currentTime < endTime) {
                                     //Heating should be running
                                     console.log("heating should be running")
@@ -307,11 +313,11 @@ function handleCarHeaterEvents() {
                         }
                     }
                 }
-
+                settings.carHeaterEvents[heaterEventIndex]["upComingEvents"] = upComingEvents;
             }
-
         }
     })
+    saveSettings()
 }
 setInterval(handleCarHeaterEvents, 1000 * 60);
 

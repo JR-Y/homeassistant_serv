@@ -43,6 +43,14 @@ export interface CarHeaterEvent {
     device_uuid: string
     startBeforeTime?: string
     endAfterStartTime?: string
+    upComingEvents?: upComingCarHeaterEvent[]
+}
+
+export interface upComingCarHeaterEvent {
+    name: string
+    eventStart: Date
+    heatingStart: Date
+    heatingEnd: Date
 }
 export interface StateCarHeaterEvent {
     name?: string

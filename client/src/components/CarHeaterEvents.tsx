@@ -4,7 +4,8 @@ import { SocketContext } from "../context/socket";
 import { IcalData, SettingsObject, State, StateCarHeaterEvent } from "../types";
 
 
-export default function CarHeaterEvents(props: { settings: SettingsObject, states: State[], icalData: IcalData[] }) {
+
+export default function CarHeaterEvents(props: { isMobile: boolean, settings: SettingsObject, states: State[], icalData: IcalData[] }) {
     const [editTags, setEditTags] = useState<string[]>([]);
     const [editNames, setEditNames] = useState<string[]>([]);
     const [carHeaterEvent, setCarHeaterEvent] = useState<StateCarHeaterEvent>({ name: "", ical_uuid: "", device_uuid: "", tags: [] });
@@ -46,7 +47,7 @@ export default function CarHeaterEvents(props: { settings: SettingsObject, state
     return (<div style={{ margin: "10px" }}>
         <div className="card">
             <h5 className="card-header">Car heater events</h5>
-            <table className="table table-hover">
+            {!props.isMobile ? <table className="table table-hover">
                 <thead>
                     <tr>
                         <th scope="col">Name</th>
@@ -145,7 +146,63 @@ export default function CarHeaterEvents(props: { settings: SettingsObject, state
                         )
                     })}
                 </tbody>
-            </table>
+            </table> :
+                props.settings.carHeaterEvents.map((event, i) => {
+                    return (
+                        <div key={i} className="card">
+                            <h4 className="card-header">{event.name}</h4>
+                            <div className="card-body">
+                                <div>Travel time</div>
+                                <input type="time" value={event.startBeforeTime} min="00:10" max="5:00" onChange={e => {
+                                    socket.emit('update_carHeaterEvent', { uuid: event.uuid, startBeforeTime: e.target.value }, (resp: any) => {
+                                        console.log(resp)
+                                    })
+                                }} />
+                                <div key={i} className="card">
+                                    <h6 className="card-header">Tags</h6>
+                                    <div className="card-body" style={{ maxHeight: "200px", overflow: "auto" }}>
+                                        {getTagSuggestions(event.ical_uuid).map((tag, i) => {
+                                            const checked = event.tags?.includes(tag);
+                                            return (<div key={i} style={{ width: "100%", backgroundColor: checked ? "lightgray" : undefined }} onClick={() => {
+                                                let tags: string[] = event.tags || [];
+                                                if (event.tags?.includes(tag)) {
+                                                    tags = event.tags?.filter(t => t != tag)
+                                                } else {
+                                                    tags.push(tag);
+                                                }
+                                                socket.emit('update_carHeaterEvent', { uuid: event.uuid, tags: tags }, (resp: any) => {
+                                                    console.log(resp)
+                                                })
+                                            }}>{checked && <i style={{ color: "green" }} className="fas fa-check" />}{tag}</div>)
+                                        })}
+                                    </div>
+                                </div>
+                                <div key={i} className="card">
+                                    <h6 className="card-header">Next events</h6>
+                                    <div className="card-body" style={{ maxHeight: "200px", overflow: "auto" }}>
+                                        {event?.upComingEvents?.map((upComing, i) => {
+                                            return (
+                                                <div key={i}>
+                                                    <div>{`Event: ${upComing.name}`}</div>
+                                                    <ul>
+                                                        <li>{`Heating start: ${new Date(upComing.heatingStart).toLocaleTimeString()}`}</li>
+                                                        <li>{`Heating end: ${new Date(upComing.heatingEnd).toLocaleTimeString()}`}</li>
+                                                        <li>{`Event start: ${new Date(upComing.eventStart).toLocaleTimeString()}`}</li>
+                                                    </ul>
+
+                                                </div>
+                                            )
+
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )
+
+                })
+            }
+
         </div>
     </div>)
 }

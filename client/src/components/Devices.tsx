@@ -6,7 +6,7 @@ import { addDevice, SettingsObject, State } from "../types";
 interface NameMap { [entity_id: string]: string }
 
 
-export default function Devices(props: { settings: SettingsObject, states: State[] }) {
+export default function Devices(props: { isMobile: boolean, settings: SettingsObject, states: State[] }) {
     const [names, setNames] = useState<NameMap>({});
     const socket: Socket = useContext(SocketContext);
 

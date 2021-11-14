@@ -17,6 +17,7 @@ import axios from 'axios';
 import { Socket } from "socket.io-client";
 import { SocketContext, socket } from './context/socket';
 import { SettingsObject, State } from './types'
+import { isMobile } from 'react-device-detect';
 
 export default function App() {
   const [settings, setSettings] = useState<SettingsObject>({ users: [], icalPaths: [], devices: [], carHeaterEvents: [] });
@@ -54,10 +55,11 @@ export default function App() {
               width: "100%",
               textAlign: `center`,
               display: `table`,
-              boxShadow: "5,5",
               textDecoration: "none",
               color: "white",
-              backgroundColor: "black"
+              backgroundColor: "black",
+              position: "fixed",
+              zIndex: 99999
             }} to="/">
               <div style={{
                 width: `100%`, padding: "15px",
@@ -67,16 +69,19 @@ export default function App() {
                 <i className="fas fa-home fa-3x"></i>
               </div>
             </Link>
-            {/* A <Switch> looks through its children <Route>s and
+            <div style={{ height: "100vh", overflow: "auto" }}>
+              <i className="fas fa-home fa-3x" style={{ padding: "15px", visibility: "hidden" }}></i>
+              {/* A <Switch> looks through its children <Route>s and
             renders the first one that matches the current URL. */}
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/carheaterevents" element={<CarHeaterEvents settings={settings} states={states} icalData={icalData} />} />
-              <Route path="/calendars" element={<Calendars settings={settings} states={states} icalData={icalData} />} />
-              <Route path="/devices" element={<Devices settings={settings} states={states} />} />
-              <Route path="/settings" element={<Settings settings={settings} states={states} icalData={icalData} />} />
-              <Route path="/users" element={<Users settings={settings} />} />
-            </Routes>
+              <Routes>
+                <Route path="/" element={<Home isMobile={isMobile} />} />
+                <Route path="/carheaterevents" element={<CarHeaterEvents settings={settings} states={states} icalData={icalData} isMobile={isMobile} />} />
+                <Route path="/calendars" element={<Calendars settings={settings} states={states} icalData={icalData} isMobile={isMobile} />} />
+                <Route path="/devices" element={<Devices settings={settings} states={states} isMobile={isMobile} />} />
+                <Route path="/settings" element={<Settings settings={settings} states={states} icalData={icalData} isMobile={isMobile} />} />
+                <Route path="/users" element={<Users settings={settings} isMobile={isMobile} />} />
+              </Routes>
+            </div>
           </div>
         </Router>
       </div>

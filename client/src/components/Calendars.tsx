@@ -3,7 +3,7 @@ import { Socket } from "socket.io-client";
 import { SocketContext } from "../context/socket";
 import { IcalData, SettingsObject, State } from "../types";
 
-export default function Calendars(props: { settings: SettingsObject, states: State[], icalData: IcalData[] }) {
+export default function Calendars(props: { isMobile: boolean, settings: SettingsObject, states: State[], icalData: IcalData[] }) {
     const [calendar, setCalendar] = useState({ name: "", path: "" });
     const socket: Socket = useContext(SocketContext);
 
