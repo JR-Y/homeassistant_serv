@@ -19,6 +19,7 @@ import { v4 as uuidv4 } from 'uuid';
 const SETTINGS_FILE_PATH = process.env.SETTINGS_FILE_PATH;
 const DATA_FOLDER_PATH = process.env.DATA_FOLDER_PATH;
 const ICALDATA_FILE_PATH = path.join(DATA_FOLDER_PATH, "icaldata.json");
+const CLIENT_BUILD_PATH = path.join(__dirname, '..', '..', 'client/build');
 
 let settings: SettingsObject;
 let states = [];
@@ -465,7 +466,7 @@ function operateSwitch(service, entityId) {
     }
 }
 
-app.use(express.static(path.join(__dirname, '..', '..', 'client/build')))
+app.use(express.static(CLIENT_BUILD_PATH))
 app.use(bodyParser.json())
 
 app.get('/api/temperature/outdoor', (req, res) => {
@@ -589,6 +590,11 @@ app.post(`/api/ha/services/switch/:action`, (req, res) => {
     const body = req.body;
     operateSwitch(action, body.entity_id)
 })
+
+app.use('/*', (req, res) => {
+    res.sendFile(path.join(CLIENT_BUILD_PATH, 'index.html'));
+});
+
 
 server.listen(port, () => {
     console.log(`homeassist_srv listening at http://localhost:${port}`)
