@@ -1,51 +1,73 @@
-import React, { useContext, useEffect } from "react";
+import React
+    //, { useContext, useEffect } 
+    from "react";
 import {
-    BrowserRouter as Router,
-    Routes,
-    Route,
+    //rowserRouter as Router,
+    //Routes,
+    //Route,
     Link,
-    useParams
+    //useParams
 } from "react-router-dom";
-import { Socket } from "socket.io-client";
-import { SocketContext } from "../context/socket";
+//import { Socket } from "socket.io-client";
+//import { SocketContext } from "../context/socket";
 
 export default function Home(props: any) {
-    const socket: Socket = useContext(SocketContext);
+    //const socket: Socket = useContext(SocketContext);
 
-    return (<div>
-        <button onClick={async () => {
-            let { hostname, port, protocol } = window.location;
-            let headers = new Headers();
-            headers.append("Content-Type", "application/json");
-            const params = {
-                method: 'POST',
-                headers: headers,
-                body: JSON.stringify({ "entity_id": "switch.ikea_outlet_1_sanna_autopistoke" })
-            };
-            //@ts-ignore
-            const request = new Request(`/api/ha/services/switch/turn_on`, params);
-            const response = await fetch(request);
-            console.log(response.body)
+    function renderLink(path: string, text: string) {
+        return (
+            <Link
+                style={{
+                    width: "100%",
+                    padding: "4px",
+                    height: `200px`,
+                    textAlign: `center`,
+                    margin: `0px`,
+                    display: `table`,
+                    boxShadow: "0 1px 3px 0 #d4d4d5,0 0 0 1px #d4d4d5",
+                    textDecoration: "none",
+                    color: "black",
+                    fontWeight: "bold",
+                    backgroundColor: "white",
+                    borderRadius: "0.28571429rem",
+                    fontSize: "25px"
+                }}
+                to={path}
+                onMouseOver={(e) => {
+                    //@ts-ignore
+                    e.target.style.background = "hsl(0, 0%, 80%)"
+                }}
+                onMouseLeave={(e) => {
+                    //@ts-ignore
+                    e.target.style.background = "white"
+                }}>
+                <div style={{
+                    width: `100%`, height: `100%`,
+                    display: `table-cell`, verticalAlign: `middle`,
+                    opacity: "100%", pointerEvents: `none`
+                }}>
+                    {text}
+                </div>
+            </Link>
+        )
 
-        }}>TURN ON</button>
-        <button onClick={async () => {
-            let { hostname, port, protocol } = window.location;
-            let headers = new Headers();
-            headers.append("Content-Type", "application/json");
-            const params = {
-                method: 'POST',
-                headers: headers,
-                body: JSON.stringify({ "entity_id": "switch.ikea_outlet_1_sanna_autopistoke" })
-            };
-            //@ts-ignore
-            const request = new Request(`/api/ha/services/switch/turn_off`, params);
-            const response = await fetch(request);
-            console.log(response.body)
+    }
 
-        }}>TURN OFF</button>
-        <input type="time" onChange={(ev) => {
-            console.log(ev.target.value)
-        }}></input>
-
-    </div>)
+    return (
+        <div style={{
+            display: "grid",
+            gridTemplateColumns: `repeat(auto-fill, minmax(300px,1fr))`,
+            gridGap: `20px`,
+            padding: `15px`,
+            justifyItems: `center`,
+            alignItems: `center`,
+            //backgroundColor: "hsl(0, 0%, 95%)"
+        }}>
+            {renderLink("/carheaterevents", "Car heater events")}
+            {renderLink("/calendars", "Calendars")}
+            {renderLink("/devices", "Devices")}
+            {/*renderLink("/settings", "Settings")*/}
+            {/*renderLink("/users", "Users")*/}
+        </div>
+    )
 }

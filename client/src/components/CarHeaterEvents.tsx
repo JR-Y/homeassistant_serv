@@ -1,36 +1,14 @@
 import React, { useContext, useState } from "react";
 import { Socket } from "socket.io-client";
 import { SocketContext } from "../context/socket";
-import { addDevice, CarHeaterEvent, IcalData, SettingsObject, State, StateCarHeaterEvent } from "../types";
-
-interface NameMap { [entity_id: string]: string }
+import { IcalData, SettingsObject, State, StateCarHeaterEvent } from "../types";
 
 
-export default function Settings(props: { settings: SettingsObject, states: State[], icalData: IcalData[] }) {
-    const [names, setNames] = useState<NameMap>({});
+export default function CarHeaterEvents(props: { settings: SettingsObject, states: State[], icalData: IcalData[] }) {
     const [editTags, setEditTags] = useState<string[]>([]);
     const [editNames, setEditNames] = useState<string[]>([]);
-    const [calendar, setCalendar] = useState({ name: "", path: "" });
     const [carHeaterEvent, setCarHeaterEvent] = useState<StateCarHeaterEvent>({ name: "", ical_uuid: "", device_uuid: "", tags: [] });
     const socket: Socket = useContext(SocketContext);
-
-    function handleAddDeviceClick(device: addDevice) {
-        socket.emit('add_device', device, (resp: any) => {
-            console.log(resp)
-        })
-    }
-
-    function handleAddCalendarClick() {
-        socket.emit('add_calendar', calendar, (resp: any) => {
-            console.log(resp)
-        })
-    }
-
-    function handleEditName(entity_id: string, name: string) {
-        let newNames = { ...names };
-        newNames[entity_id] = name;
-        setNames(newNames);
-    }
 
     function handleAddCarHeaterLinkClick() {
         socket.emit('add_carHeaterEvent', carHeaterEvent, (resp: any) => {
@@ -152,82 +130,5 @@ export default function Settings(props: { settings: SettingsObject, states: Stat
                 </tbody>
             </table>
         </div>
-        <div className="card">
-            <h5 className="card-header">Calendars</h5>
-            <table className="table table-hover">
-                <thead>
-                    <tr>
-                        <th scope="col">Name</th>
-                        <th scope="col">uri</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr key={"gdfgdfg"}>
-                        <td><input style={{ width: "100%" }} value={calendar.name || ""} onChange={(event) => setCalendar({ name: event.target.value, path: calendar.path })}></input></td>
-                        <td><input style={{ width: "100%" }} value={calendar.path || ""} onChange={(event) => setCalendar({ name: calendar.name, path: event.target.value })}></input></td>
-                        <td><button onClick={() => handleAddCalendarClick()}>Add Calendar</button></td>
-                    </tr>
-                    {props.settings.icalPaths.map((cal, i) => {
-                        return (<tr key={i}>
-                            <td>{cal.name}</td>
-                            <td style={{ wordBreak: "break-all" }}>{cal.path}</td>
-                            <td><button onClick={() => {
-                                socket.emit('delete_calendar', cal.uuid, (resp: any) => {
-                                    console.log(resp)
-                                })
-                            }}>Delete calendar</button></td>
-                        </tr>
-                        )
-                    })}
-                </tbody>
-            </table>
-        </div>
-        {props.settings.devices.length > 0 ?
-            <div className="card">
-                <h5 className="card-header">Devices</h5>
-                <table className="table table-hover">
-                    <thead>
-                        <tr>
-                            <th scope="col">Name</th>
-                            <th scope="col">Entity_id</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {props.settings.devices.map((device, i) => {
-                            return (<tr key={i}>
-                                <td>{device.name}</td>
-                                <td>{device.entity_id}</td>
-                            </tr>
-                            )
-                        })}
-                    </tbody>
-                </table>
-            </div> : null}
-
-        {props.states.length > 0 ?
-            <div className="card">
-                <h5 className="card-header">States</h5>
-                <table className="table table-hover">
-                    <thead>
-                        <tr>
-                            <th scope="col">Entity_id</th>
-                            <th scope="col">State</th>
-                            <th scope="col">Name</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {props.states.map((state, i) => {
-                            return (
-                                <tr key={i}>
-                                    <th scope="row" style={{ wordBreak: "break-all" }}>{state.entity_id}</th>
-                                    <td>{state.state}</td>
-                                    <td><input value={names[state.entity_id] || ""} onChange={(event) => handleEditName(state.entity_id, event.target.value)}></input></td>
-                                    <td><button onClick={() => handleAddDeviceClick({ entity_id: state.entity_id, name: names[state.entity_id] || "" })}>ADD DEVICE</button></td>
-                                </tr>
-                            )
-                        })}
-                    </tbody>
-                </table>
-            </div> : null}
     </div>)
 }

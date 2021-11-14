@@ -10,6 +10,9 @@ import './App.css';
 import Settings from './components/Settings';
 import Users from './components/Users';
 import Home from './components/Home';
+import Devices from './components/Devices'
+import Calendars from './components/Calendars'
+import CarHeaterEvents from './components/CarHeaterEvents'
 import axios from 'axios';
 import { Socket } from "socket.io-client";
 import { SocketContext, socket } from './context/socket';
@@ -47,25 +50,31 @@ export default function App() {
     <SocketContext.Provider value={socket}>
       <div className="App">
         <Router>
-          <div>
-            <nav>
-              <ul>
-                <li>
-                  <Link to="/">Home</Link>
-                </li>
-                <li>
-                  <Link to="/settings">Settings</Link>
-                </li>
-                <li>
-                  <Link to="/users">Users</Link>
-                </li>
-              </ul>
-            </nav>
-
+          <div style={{}}>
+            <Link style={{
+              width: "100%",
+              textAlign: `center`,
+              display: `table`,
+              boxShadow: "5,5",
+              textDecoration: "none",
+              color: "white",
+              backgroundColor: "black"
+            }} to="/">
+              <div style={{
+                width: `100%`, padding: "15px",
+                display: `table-cell`, verticalAlign: `middle`,
+                opacity: "100%", pointerEvents: `none`
+              }}>
+                <i className="fas fa-home fa-3x"></i>
+              </div>
+            </Link>
             {/* A <Switch> looks through its children <Route>s and
             renders the first one that matches the current URL. */}
             <Routes>
               <Route path="/" element={<Home />} />
+              <Route path="/carheaterevents" element={<CarHeaterEvents settings={settings} states={states} icalData={icalData} />} />
+              <Route path="/calendars" element={<Calendars settings={settings} states={states} icalData={icalData} />} />
+              <Route path="/devices" element={<Devices settings={settings} states={states} />} />
               <Route path="/settings" element={<Settings settings={settings} states={states} icalData={icalData} />} />
               <Route path="/users" element={<Users settings={settings} />} />
             </Routes>
