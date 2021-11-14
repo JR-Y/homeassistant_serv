@@ -260,10 +260,10 @@ function handleCarHeaterEvents() {
     carHeaterEvents.forEach(carHeaterEvent => {
         const { startBeforeTime, ical_uuid, tags, device_uuid } = carHeaterEvent;
         const startBeforeMS = startBeforeTime ? getMillisecondsFromTime(startBeforeTime) : 0;
+        console.log(startBeforeMS);
         const temperatureAddedTime = getTemperatureAdjustedCarHeatingTime();
         console.log(temperatureAddedTime);
         const defaultHeatingTime = 30 * 60 * 1000;//30 min
-        console.log(temperatureAddedTime);
         const totalHeatingStartBeforeTime: number = startBeforeMS + defaultHeatingTime + temperatureAddedTime;
         if (ical_uuid) {
             let ical = icalData.find(v => v.uuid == ical_uuid);
