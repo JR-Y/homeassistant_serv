@@ -8,9 +8,14 @@ export default function Calendars(props: { settings: SettingsObject, states: Sta
     const socket: Socket = useContext(SocketContext);
 
     function handleAddCalendarClick() {
-        socket.emit('add_calendar', calendar, (resp: any) => {
-            console.log(resp)
-        })
+        if (calendar.name && calendar.path) {
+            socket.emit('add_calendar', calendar, (resp: any) => {
+                console.log(resp)
+                setCalendar({ name: "", path: "" });
+            })
+        } else {
+            window.alert("Add name & path!")
+        }
     }
 
     return (<div style={{ margin: "10px" }}>
@@ -30,9 +35,15 @@ export default function Calendars(props: { settings: SettingsObject, states: Sta
                         <td><button onClick={() => handleAddCalendarClick()}>Add Calendar</button></td>
                     </tr>
                     {props.settings.icalPaths.map((cal, i) => {
+                        let data = props.icalData.find(c => c.uuid === cal.uuid);
                         return (<tr key={i}>
                             <td>{cal.name}</td>
-                            <td style={{ wordBreak: "break-all" }}>{cal.path}</td>
+                            <td style={{ wordBreak: "break-all", color: data?.error ? "red" : undefined }}>
+                                {!data?.error ?
+                                    <i style={{ color: "green" }} className="fas fa-check" /> :
+                                    <i style={{ color: "red" }} className="fas fa-times" />}
+                                {data?.error ? ` ${data.error} ${cal.path}` : ` ${cal.path}`}
+                            </td>
                             <td><button onClick={() => {
                                 socket.emit('delete_calendar', cal.uuid, (resp: any) => {
                                     console.log(resp)

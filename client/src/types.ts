@@ -12,6 +12,7 @@ export interface IcalData {
     uuid: string
     data: object
     tagSuggestions: string[]
+    error?: string
 }
 
 

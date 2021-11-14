@@ -17,6 +17,7 @@ export interface IcalData {
     uuid: string
     data: object
     tagSuggestions: string[]
+    error?: string
 }
 
 export interface State {

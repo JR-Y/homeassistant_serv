@@ -25,22 +25,21 @@ export default function App() {
   //const socketC = useContext(SocketContext);
 
   useEffect(() => {
-    console.log("run");
     socket.on("connect", () => {
-      console.log(socket.id); // x8WIv7-mJelg7on_ALbx
+      //console.log(socket.id); // x8WIv7-mJelg7on_ALbx
     });
 
     socket.on("settings", (data: SettingsObject) => {
       setSettings(data)
-      console.log(`SETTINGS: ${data}`)
+      //console.log(`SETTINGS: ${data}`)
     })
     socket.on("states", (data) => {
       setStates(data)
-      console.log(`STATES: ${data}`)
+      //console.log(`STATES: ${data}`)
     })
     socket.on("icalData", (data) => {
       setIcalData(data)
-      console.log(`icalData: ${data}`)
+      //console.log(`icalData: ${data}`)
     })
     return () => {
       socket.removeAllListeners();

@@ -27,6 +27,22 @@ export default function CarHeaterEvents(props: { settings: SettingsObject, state
         return [];
     }
 
+    function getDeviceName(uuid: string) {
+        if (props.settings.devices) {
+            let dev = props.settings.devices.find(p => p.uuid === uuid);
+            return dev?.name
+        }
+        return null
+    }
+
+    function getCalendarName(uuid: string) {
+        if (props.settings.icalPaths) {
+            let cal = props.settings.icalPaths.find(p => p.uuid === uuid);
+            return cal?.name
+        }
+        return null
+    }
+
     return (<div style={{ margin: "10px" }}>
         <div className="card">
             <h5 className="card-header">Car heater events</h5>
@@ -37,7 +53,7 @@ export default function CarHeaterEvents(props: { settings: SettingsObject, state
                         <th scope="col">Travel time</th>
                         <th scope="col">Tags</th>
                         <th scope="col">Device</th>
-                        <th scope="col">Caledar</th>
+                        <th scope="col">Calendar</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -80,6 +96,7 @@ export default function CarHeaterEvents(props: { settings: SettingsObject, state
                         <td><button onClick={() => handleAddCarHeaterLinkClick()}>Add heater event</button></td>
                     </tr>
                     {props.settings.carHeaterEvents.map((item, i) => {
+                        if (item.tags.length < 1) { }
                         return (<tr key={i}>
                             <td><div style={{ width: "100%", cursor: "pointer" }}
                                 onClick={() => { setEditNames([...editNames, item.uuid]) }}
@@ -99,9 +116,10 @@ export default function CarHeaterEvents(props: { settings: SettingsObject, state
                             <td>
                                 <div style={{ maxHeight: "200px", width: "100%", overflow: "auto", cursor: "pointer" }}
                                     onClick={() => { setEditTags([...editTags, item.uuid]) }}
-                                    onMouseLeave={() => setEditTags(editTags.filter(t => t !== item.uuid))}>
-                                    {editTags.includes(item.uuid) && getTagSuggestions(item.ical_uuid).map((tag, i) => {
-                                        return (<div key={i} style={{ width: "100%", backgroundColor: item.tags?.includes(tag) ? "lightgray" : undefined }} onClick={() => {
+                                    onMouseLeave={() => { setEditTags(editTags.filter(t => t !== item.uuid)) }}>
+                                    {item.tags.length < 1 || editTags.includes(item.uuid) ? getTagSuggestions(item.ical_uuid).map((tag, i) => {
+                                        const checked = item.tags?.includes(tag);
+                                        return (<div key={i} style={{ width: "100%", backgroundColor: checked ? "lightgray" : undefined }} onClick={() => {
                                             let tags: string[] = item.tags || [];
                                             if (item.tags?.includes(tag)) {
                                                 tags = item.tags?.filter(t => t != tag)
@@ -111,14 +129,13 @@ export default function CarHeaterEvents(props: { settings: SettingsObject, state
                                             socket.emit('update_carHeaterEvent', { uuid: item.uuid, tags: tags }, (resp: any) => {
                                                 console.log(resp)
                                             })
-                                        }}>{tag}</div>)
-                                    })}
-                                    {!editTags.includes(item.uuid) && item.tags?.map((tag, i) => <div key={i}>{tag}</div>)}
+                                        }}>{checked && <i style={{ color: "green" }} className="fas fa-check" />}{tag}</div>)
+                                    }) : item.tags?.map((tag, i) => <div key={i}><i style={{ color: "green" }} className="fas fa-check" />{tag}</div>)}
                                 </div>
                             </td>
                             {/**<td>{item.tags?.map((tag, i) => <div key={i}>{tag}</div>)}</td> */}
-                            <td>{item.ical_uuid}</td>
-                            <td>{item.device_uuid}</td>
+                            <td>{getDeviceName(item.device_uuid)}</td>
+                            <td>{getCalendarName(item.ical_uuid)}</td>
                             <td><button onClick={() => {
                                 socket.emit('delete_carHeaterEvent', item.uuid, (resp: any) => {
                                     console.log(resp)

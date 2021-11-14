@@ -13,6 +13,9 @@ export default function Devices(props: { settings: SettingsObject, states: State
     function handleAddDeviceClick(device: addDevice) {
         socket.emit('add_device', device, (resp: any) => {
             console.log(resp)
+            let newNames = names;
+            delete newNames[device.entity_id];
+            setNames(newNames);
         })
     }
 
@@ -58,14 +61,16 @@ export default function Devices(props: { settings: SettingsObject, states: State
                     </thead>
                     <tbody>
                         {props.states.map((state, i) => {
-                            return (
-                                <tr key={i}>
-                                    <th scope="row" style={{ wordBreak: "break-all" }}>{state.entity_id}</th>
-                                    <td>{state.state}</td>
-                                    <td><input value={names[state.entity_id] || ""} onChange={(event) => handleEditName(state.entity_id, event.target.value)}></input></td>
-                                    <td><button onClick={() => handleAddDeviceClick({ entity_id: state.entity_id, name: names[state.entity_id] || "" })}>ADD DEVICE</button></td>
-                                </tr>
-                            )
+                            if (state && state.entity_id) {
+                                return (
+                                    <tr key={i}>
+                                        <th scope="row" style={{ wordBreak: "break-all" }}>{state.entity_id}</th>
+                                        <td>{state.state}</td>
+                                        <td><input value={names[state.entity_id] || ""} onChange={(event) => handleEditName(state.entity_id, event.target.value)}></input></td>
+                                        <td><button onClick={() => handleAddDeviceClick({ entity_id: state.entity_id, name: names[state.entity_id] || "" })}>ADD DEVICE</button></td>
+                                    </tr>
+                                )
+                            }
                         })}
                     </tbody>
                 </table>

@@ -99,15 +99,11 @@ io.on("connection", (socket: Socket) => {
     socket.on('add_calendar', (data: addIcalPath) => {
         let id = uuidv4();
         settings.icalPaths.push({ uuid: id, ...data });
+        updateIcalData()
         saveSettings()
     })
     socket.on('delete_calendar', (uuid: string) => {
         settings.icalPaths = settings.icalPaths.filter((item) => item.uuid !== uuid);
-        saveSettings()
-    })
-    socket.on('add_calendar', (data: addIcalPath) => {
-        let id = uuidv4();
-        settings.icalPaths.push({ uuid: id, ...data });
         saveSettings()
     })
     socket.on('add_carHeaterEvent', (data: addCarHeaterEvent) => {
@@ -201,6 +197,12 @@ function updateIcalData() {
             saveIcalData();
         }).catch(err => {
             console.log(err)
+            const i = icalData.findIndex(val => val.uuid === element.uuid);
+            if (i < 0) {
+                icalData.push({ uuid: element.uuid, data: {}, error: "unable to get calendar", tagSuggestions: [] })
+            } else {
+                icalData[i] = { uuid: element.uuid, data: {}, error: "unable to get calendar", tagSuggestions: [] };
+            }
         })
     }
 }
