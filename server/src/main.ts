@@ -58,20 +58,37 @@ const HA_TOKEN = process.env.HA_TOKEN;
 let HA_SENSOR_OUTDOOR_TEMPERATURE = process.env.HA_SENSOR_OUTDOOR_TEMPERATURE;
 let HA_SENSOR_INDOOR_TEMPERATURE = process.env.HA_SENSOR_INDOOR_TEMPERATURE;
 
-let OUTDOOR_TEMPERATURE;
-
-
 function getOutdoorTemperature() {
-    if (OUTDOOR_TEMPERATURE) {
-        if (OUTDOOR_TEMPERATURE > -50 && OUTDOOR_TEMPERATURE < 60) {
-            return OUTDOOR_TEMPERATURE;
+    const tempState = states.find(s => s.entity_id === HA_SENSOR_OUTDOOR_TEMPERATURE);
+    let outdoorTemperature
+    try {
+        outdoorTemperature = Number.parseFloat(tempState.state);
+        if (outdoorTemperature > -50 && outdoorTemperature < 60) {
+            return outdoorTemperature;
         }
+    } catch (error) {
+        console.log(error)
     }
-    return 0
+    return undefined
+}
+
+function getIndoorTemperature() {
+    const tempState = states.find(s => s.entity_id === HA_SENSOR_INDOOR_TEMPERATURE);
+    let indoorTemperature
+    try {
+        indoorTemperature = Number.parseFloat(tempState.state);
+        if (indoorTemperature > -50 && indoorTemperature < 60) {
+            return indoorTemperature;
+        }
+    } catch (error) {
+        console.log(error)
+    }
+    return undefined
 }
 
 function getTemperatureAdjustedCarHeatingTime() {
     const outdoorTemperature = getOutdoorTemperature();
+    if (!outdoorTemperature) { return 0 }
     const fullAdditionalTime = 30 * 60 * 1000;// 30 min max additional time in milliseconds
     switch (true) {
         case outdoorTemperature < -15:
@@ -253,18 +270,16 @@ function handleIcalEvents() {
                 }
             }
         }
-        if (OUTDOOR_TEMPERATURE) { console.log(OUTDOOR_TEMPERATURE) }
     })
 }
 //setInterval(handleIcalEvents, 1000 * 60);
 function handleCarHeaterEvents() {
     const { icalPaths, carHeaterEvents } = settings;
     carHeaterEvents.forEach((carHeaterEvent, heaterEventIndex) => {
-        const { startBeforeTime, ical_uuid, tags, device_uuid } = carHeaterEvent;
+        const { startBeforeTime, endAfterStartTime, ical_uuid, tags, device_uuid } = carHeaterEvent;
         const startBeforeMS = startBeforeTime ? getMillisecondsFromTime(startBeforeTime) : 0;
-        console.log(startBeforeMS);
+        const endAfterStartMS = endAfterStartTime ? getMillisecondsFromTime(endAfterStartTime) : 5 * 60 * 1000; //Default end 5 minutes after scheduled start time
         const temperatureAddedTime = getTemperatureAdjustedCarHeatingTime();
-        console.log(temperatureAddedTime);
         const defaultHeatingTime = 30 * 60 * 1000;//30 min
         const totalHeatingStartBeforeTime: number = startBeforeMS + defaultHeatingTime + temperatureAddedTime;
         if (ical_uuid) {
@@ -276,36 +291,41 @@ function handleCarHeaterEvents() {
                 for (const key in data) {
                     if (Object.prototype.hasOwnProperty.call(data, key)) {
                         const ev = data[key];
-                        const event_tags = getTags(ev.summary);
-                        if (tags && event_tags.length > 0 && event_tags.find(t => tags.includes(t))) {
-                            if (dt.getTime() > ev.start.getTime() - (1000 * 60 * 60 * 24) && ev.end.getTime() > dt.getTime()) {
-                                //console.log(`Heatingevent starting in ${ev.start.getTime() - totalHeatingStartBeforeTime - dt.getTime()}`)
-                                const currentTime = dt.getTime();
-                                const startTime = ev.start.getTime() - totalHeatingStartBeforeTime;
-                                const endTime = ev.start.getTime() - startBeforeMS;
-                                upComingEvents.push({
-                                    name: ev.summary,
-                                    eventStart: ev.start,
-                                    heatingStart: new Date(startTime),
-                                    heatingEnd: new Date(endTime)
-                                })
-                                if (currentTime > startTime && currentTime < endTime) {
-                                    //Heating should be running
-                                    console.log("heating should be running")
-                                    const device = settings.devices.find(d => d.uuid === device_uuid);
-                                    if (device) {
-                                        const state = states.find(state => state.entity_id === device.entity_id);
-                                        if (state && state.state && state.state !== "on") {
-                                            operateSwitch("turn_on", device.entity_id);
+                        if (ev.type && ev.type === "VEVENT") {
+                            const eventStart = ev.start ? new Date(ev.start) : undefined
+                            const eventEnd = ev.end ? new Date(ev.end) : undefined
+
+                            const event_tags = getTags(ev.summary);
+                            if (tags && event_tags.length > 0 && event_tags.find(t => tags.includes(t))) {
+                                if (dt.getTime() > eventStart.getTime() - (1000 * 60 * 60 * 24) && eventEnd.getTime() > dt.getTime()) {
+                                    //console.log(`Heatingevent starting in ${ev.start.getTime() - totalHeatingStartBeforeTime - dt.getTime()}`)
+                                    const currentTime = dt.getTime();
+                                    const startTime = eventStart.getTime() - totalHeatingStartBeforeTime;
+                                    const endTime = eventStart.getTime() - startBeforeMS + endAfterStartMS;
+                                    upComingEvents.push({
+                                        name: ev.summary,
+                                        eventStart: ev.start,
+                                        heatingStart: new Date(startTime),
+                                        heatingEnd: new Date(endTime)
+                                    })
+                                    if (currentTime > startTime && currentTime < endTime) {
+                                        //Heating should be running
+                                        console.log("heating should be running")
+                                        const device = settings.devices.find(d => d.uuid === device_uuid);
+                                        if (device) {
+                                            const state = states.find(state => state.entity_id === device.entity_id);
+                                            if (state && state.state && state.state !== "on") {
+                                                operateSwitch("turn_on", device.entity_id);
+                                            }
                                         }
-                                    }
-                                } else {
-                                    console.log("heating should be stopped")
-                                    const device = settings.devices.find(d => d.uuid === device_uuid);
-                                    if (device) {
-                                        const state = states.find(state => state.entity_id === device.entity_id);
-                                        if (state && state.state && state.state !== "off") {
-                                            operateSwitch("turn_off", device.entity_id);
+                                    } else {
+                                        console.log("heating should be stopped")
+                                        const device = settings.devices.find(d => d.uuid === device_uuid);
+                                        if (device) {
+                                            const state = states.find(state => state.entity_id === device.entity_id);
+                                            if (state && state.state && state.state !== "off") {
+                                                operateSwitch("turn_off", device.entity_id);
+                                            }
                                         }
                                     }
                                 }
@@ -319,6 +339,7 @@ function handleCarHeaterEvents() {
     })
     saveSettings()
 }
+setTimeout(handleCarHeaterEvents, 10000)
 setInterval(handleCarHeaterEvents, 1000 * 60);
 
 //Unique messageID to be returned with homeassistant result messages
@@ -478,31 +499,15 @@ app.use(express.static(CLIENT_BUILD_PATH))
 app.use(bodyParser.json())
 
 app.get('/api/temperature/outdoor', (req, res) => {
-    axios.get(`${HA_ROOT_URL}/api/states/${HA_SENSOR_OUTDOOR_TEMPERATURE}`,
-        {
-            headers: {
-                "Authorization": `Bearer ${HA_TOKEN}`
-            }
-        }
-    ).then(result => {
-        if (result.data && result.data.state) {
-            try {
-                OUTDOOR_TEMPERATURE = Number.parseFloat(result.data.state);
-            } catch (error) {
 
-            }
-        }
-        res.send(`${OUTDOOR_TEMPERATURE}`)
-    }).catch(err => {
-        console.log(err)
-        res.status(400).send()
-    })
 })
 app.get('/api/clear_states', (req, res) => {
     states = [];
     saveSettings()
     res.send(`ok`);
 })
+
+//Example
 app.get('/api/temperature/indoor', (req, res) => {
     axios.get(`${HA_ROOT_URL}/api/states/${HA_SENSOR_INDOOR_TEMPERATURE}`,
         {
@@ -511,14 +516,15 @@ app.get('/api/temperature/indoor', (req, res) => {
             }
         }
     ).then(result => {
+        let temp;
         if (result.data && result.data.state) {
             try {
-                OUTDOOR_TEMPERATURE = Number.parseFloat(result.data.state);
+                temp = Number.parseFloat(result.data.state)
             } catch (error) {
-
+                console.log(error)
             }
         }
-        res.send(`${OUTDOOR_TEMPERATURE}`)
+        res.send(temp)
     }).catch(err => {
         console.log(err)
         res.status(400).send()
