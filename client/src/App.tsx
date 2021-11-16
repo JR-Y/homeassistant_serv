@@ -50,7 +50,7 @@ export default function App() {
     <SocketContext.Provider value={socket}>
       <div className="App">
         <Router>
-          <div style={{}}>
+          <div>
             <Link style={{
               width: "100%",
               textAlign: `center`,
@@ -69,7 +69,7 @@ export default function App() {
                 <i className="fas fa-home fa-3x"></i>
               </div>
             </Link>
-            <div style={{ height: "100vh", overflow: "auto" }}>
+            <div>
               <i className="fas fa-home fa-3x" style={{ padding: "15px", visibility: "hidden" }}></i>
               {/* A <Switch> looks through its children <Route>s and
             renders the first one that matches the current URL. */}
