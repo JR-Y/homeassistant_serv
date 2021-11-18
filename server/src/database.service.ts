@@ -1,52 +1,30 @@
-import { MongoClient } from 'mongodb'
-
-const url = 'mongodb://localhost:27017';
-const client = new MongoClient(url);
-
-const dbName = 'HOMEASSISTANT_API_SERVER';
-export const db = client.db(dbName);
-export let users = db.collection('users');
-export let icalPaths = db.collection('icalPaths');
-export let devices = db.collection('devices');
-export let carHeaterEvents = db.collection('carHeaterEvents');
-
-export let states = db.collection('states');
-export let icalData = db.collection('icalData');
+import { Schema, model, connect } from 'mongoose';
+import * as path from 'path';
+import { IcalData, State } from './types';
+const MONGO_URL = 'mongodb://localhost:27017';
+const MONGO_DB = 'HOMEASSISTANT_API_SERVER';
 export let connected = false;
 
-export async function getIcalData() {
-    if (connected) {
-        return await icalData.find({}).toArray();
-    } else {
-        return [];
-    }
-}
+const icalDataSchema = new Schema<IcalData>({
+    data: { type: Object, required: true },
+    tagSuggestions: [{ type: String }],
+    error: { type: String }
+});
+export const icalDataModel = model<IcalData>('icalData', icalDataSchema);
 
-export async function saveIcalData(object) {
-    if (connected) {
-        return await icalData.insertOne(object);
-    } else {
-        return [];
-    }
-}
+const stateSchema = new Schema<State>({
+    entity_id: { type: String, required: true },
+    state: { type: String },
+    changed: { type: Date },
+    HA_StateObject: { type: Object }
+});
+export const stateModel = model<State>('states', stateSchema);
 
-export async function connect() {
-    // Use connect method to connect to the server
-    await client.connect();
-    console.log('Connected successfully to server');
-    users = db.collection('users');
-    icalPaths = db.collection('icalPaths');
-    devices = db.collection('devices');
-    carHeaterEvents = db.collection('carHeaterEvents');
 
-    states = db.collection('states');
-    icalData = db.collection('icalData');
 
-    // the following code examples can be pasted here...
-    connected = true;
-    return 'done.';
-}
 
-connect()
-    .then(console.log)
-    .catch(console.error);
+connect(path.join(MONGO_URL, MONGO_DB))
+    .then(res => {
+        connected = true
+    })
+    .catch(err => console.log(err));

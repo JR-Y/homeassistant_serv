@@ -7,13 +7,14 @@ const server = http.createServer(app);
 const { Server } = require("socket.io");
 const io: Socket = new Server(server);
 const bodyParser = require('body-parser')
-const path = require('path');
+import * as path from 'path';
 const axios = require('axios').default;
 import ical from 'ical';
 const WebSocketClient = require('websocket').client;
-import { addCarHeaterEvent, addDevice, addIcalPath, Device, IcalData, SettingsObject, updateCarHeaterEvent } from './types'
+import { addCarHeaterEvent, addDevice, addIcalPath, IcalData, SettingsObject, updateCarHeaterEvent } from './types'
 import { Socket } from 'socket.io';
 import { v4 as uuidv4 } from 'uuid';
+import { connected, icalDataModel, stateModel } from './database.service';
 
 //Load file containing user inputs & selections
 const SETTINGS_FILE_PATH = process.env.SETTINGS_FILE_PATH;
@@ -252,26 +253,6 @@ function getTags(summary): string[] {
     return []
 }
 
-function handleIcalEvents() {
-    const { icalPaths } = settings;
-    icalPaths.forEach((icalPath, i) => {
-        const { uuid, name, path } = icalPath;
-        if (icalData[uuid]) {
-            const dt = new Date();
-            for (const key in icalData[uuid].data) {
-                if (Object.prototype.hasOwnProperty.call(icalData[uuid].data, key)) {
-                    const ev = icalData[uuid].data[key];
-                    if (dt.getTime() > ev.start.getTime()) {
-
-                        //Handle events with start time in future
-                    } else {
-                        //Handle events with start time in past
-                    }
-                }
-            }
-        }
-    })
-}
 //setInterval(handleIcalEvents, 1000 * 60);
 function handleCarHeaterEvents() {
     const { icalPaths, carHeaterEvents } = settings;
