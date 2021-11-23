@@ -255,6 +255,7 @@ function getTags(summary): string[] {
 
 //setInterval(handleIcalEvents, 1000 * 60);
 function handleCarHeaterEvents() {
+    let eventsTemp = [];
     const { icalPaths, carHeaterEvents } = settings;
     carHeaterEvents.forEach((carHeaterEvent, heaterEventIndex) => {
         const { startBeforeTime, endAfterStartTime, ical_uuid, tags, device_uuid } = carHeaterEvent;
@@ -273,48 +274,86 @@ function handleCarHeaterEvents() {
                     if (Object.prototype.hasOwnProperty.call(data, key)) {
                         const ev = data[key];
                         if (ev.type && ev.type === "VEVENT") {
-                            const eventStart = ev.start ? new Date(ev.start) : undefined
-                            const eventEnd = ev.end ? new Date(ev.end) : undefined
+                            let eventStart = ev.start ? new Date(ev.start) : undefined
+                            let eventEnd = ev.end ? new Date(ev.end) : undefined
+                            const recurring_event = ev.rrule ? true : false;
 
                             const event_tags = getTags(ev.summary);
                             if (tags && event_tags.length > 0 && event_tags.find(t => tags.includes(t))) {
-                                if (dt.getTime() > eventStart.getTime() - (1000 * 60 * 60 * 24) && eventEnd.getTime() > dt.getTime()) {
+                                if (!recurring_event && dt.getTime() > eventStart.getTime() - (1000 * 60 * 60 * 24) && eventEnd.getTime() > dt.getTime()) {
                                     //console.log(`Heatingevent starting in ${ev.start.getTime() - totalHeatingStartBeforeTime - dt.getTime()}`)
-                                    const currentTime = dt.getTime();
                                     const startTime = eventStart.getTime() - totalHeatingStartBeforeTime;
                                     const endTime = eventStart.getTime() - startBeforeMS + endAfterStartMS;
-                                    upComingEvents.push({
+                                    const heatingEvent = {
                                         name: ev.summary,
-                                        eventStart: ev.start,
+                                        eventStart: eventStart,
                                         heatingStart: new Date(startTime),
-                                        heatingEnd: new Date(endTime)
-                                    })
-                                    if (currentTime > startTime && currentTime < endTime) {
-                                        //Heating should be running
-                                        console.log("heating should be running")
-                                        const device = settings.devices.find(d => d.uuid === device_uuid);
-                                        if (device) {
-                                            const state = states.find(state => state.entity_id === device.entity_id);
-                                            if (state && state.state && state.state !== "on") {
-                                                operateSwitch("turn_on", device.entity_id);
-                                            }
-                                        }
-                                    } else {
-                                        console.log("heating should be stopped")
-                                        const device = settings.devices.find(d => d.uuid === device_uuid);
-                                        if (device) {
-                                            const state = states.find(state => state.entity_id === device.entity_id);
-                                            if (state && state.state && state.state !== "off") {
-                                                operateSwitch("turn_off", device.entity_id);
-                                            }
-                                        }
+                                        heatingStartMS: startTime,
+                                        heatingEnd: new Date(endTime),
+                                        heatingEndMS: endTime,
+                                        device: settings.devices.find(d => d.uuid === device_uuid)
+                                    };
+                                    upComingEvents.push(heatingEvent)
+                                    eventsTemp.push(heatingEvent)
+                                }
+                                if (recurring_event) {
+                                    const weekDays = ev.rrule.options.byweekday;
+                                    const excluded_dates = ev.exdate || [];
+                                    const until = ev.rrule.options.until || undefined;
+                                    if (weekDays && weekDays.length > 0//Only handle events by weekdays
+                                        && eventStart.getTime() - (1000 * 60 * 60 * 24) < dt.getTime()//event has begun
+                                        && (until ? until.getTime() > dt.getTime() : true)//Recurring event has not ended
+                                        && weekDays.includes(dt.getUTCDay() - 1)//Event should occur today
+                                        && !excluded_dates.find(ex => new Date(ex).toDateString() === dt.toDateString())//Event is not excluded
+                                    ) {
+                                        //Set this event start variable to "today"
+                                        const eventDuration = eventEnd.getTime() - eventStart.getTime();
+                                        eventStart.setUTCFullYear(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate());
+                                        eventEnd = new Date(eventStart.getTime() + eventDuration);
+                                        //run normal heater event code
+                                        const startTime = eventStart.getTime() - totalHeatingStartBeforeTime;
+                                        const endTime = eventStart.getTime() - startBeforeMS + endAfterStartMS;
+                                        const heatingEvent = {
+                                            name: ev.summary,
+                                            eventStart: eventStart,
+                                            heatingStart: new Date(startTime),
+                                            heatingStartMS: startTime,
+                                            heatingEnd: new Date(endTime),
+                                            heatingEndMS: endTime,
+                                            device: settings.devices.find(d => d.uuid === device_uuid)
+                                        };
+                                        upComingEvents.push(heatingEvent)
+                                        eventsTemp.push(heatingEvent)
                                     }
+
                                 }
                             }
+
                         }
                     }
                 }
                 settings.carHeaterEvents[heaterEventIndex]["upComingEvents"] = upComingEvents;
+            }
+        }
+    })
+    eventsTemp.forEach(event => {
+        const { heatingStartMS, heatingEndMS, device } = event;
+        const currentTime = new Date().getTime();
+        if (currentTime > heatingStartMS && currentTime < heatingEndMS) {
+            //Heating should be running
+            if (device) {
+                const state = states.find(state => state.entity_id === device.entity_id);
+                if (state && state.state && state.state !== "on") {
+                    operateSwitch("turn_on", device.entity_id);
+                }
+            }
+        } else {
+            //Heating should be stopped
+            if (device) {
+                const state = states.find(state => state.entity_id === device.entity_id);
+                if (state && state.state && state.state !== "off") {
+                    operateSwitch("turn_off", device.entity_id);
+                }
             }
         }
     })

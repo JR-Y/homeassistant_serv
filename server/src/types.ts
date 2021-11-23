@@ -70,7 +70,10 @@ export interface upComingCarHeaterEvent {
     name: string
     eventStart: Date
     heatingStart: Date
+    heatingStartMS: number
     heatingEnd: Date
+    heatingEndMS: number,
+    device: Device
 }
 
 
