@@ -44,6 +44,22 @@ export default function CarHeaterEvents(props: { isMobile: boolean, settings: Se
         return null
     }
 
+    function getDateString(someDate: Date) {
+        const today = new Date()
+        if (someDate.getDate() == today.getDate() &&
+            someDate.getMonth() == today.getMonth() &&
+            someDate.getFullYear() == today.getFullYear()) {
+            return "Today"
+        }
+        const tomorrow = new Date(new Date().getTime() + (1000 * 60 * 60 * 24))
+        if (someDate.getDate() == tomorrow.getDate() &&
+            someDate.getMonth() == tomorrow.getMonth() &&
+            someDate.getFullYear() == tomorrow.getFullYear()) {
+            return "Tomorrow"
+        }
+        return someDate.toLocaleDateString()
+    }
+
     return (<div style={{ margin: "10px" }}>
         <div className="card">
             <h5 className="card-header">Car heater events</h5>
@@ -183,7 +199,8 @@ export default function CarHeaterEvents(props: { isMobile: boolean, settings: Se
                                         {event?.upComingEvents?.map((upComing, i) => {
                                             return (
                                                 <div key={i}>
-                                                    <div>{`Event: ${upComing.name}`}</div>
+                                                    <b>{`${upComing.name}`}</b>
+                                                    <div>{`${getDateString(new Date(upComing.heatingStart))}`}</div>
                                                     <ul>
                                                         <li>{`Heating start: ${new Date(upComing.heatingStart).toLocaleTimeString()}`}</li>
                                                         <li>{`Heating end: ${new Date(upComing.heatingEnd).toLocaleTimeString()}`}</li>
