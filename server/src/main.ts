@@ -336,27 +336,40 @@ function handleCarHeaterEvents() {
             }
         }
     })
+    //If there are more than on close by events, ensure that active heater event keeps device on
+    let deviceStates = {};
     eventsTemp.forEach(event => {
         const { heatingStartMS, heatingEndMS, device } = event;
         const currentTime = new Date().getTime();
         if (currentTime > heatingStartMS && currentTime < heatingEndMS) {
             //Heating should be running
-            if (device) {
-                const state = states.find(state => state.entity_id === device.entity_id);
-                if (state && state.state && state.state !== "on") {
-                    operateSwitch("turn_on", device.entity_id);
-                }
-            }
+            deviceStates[device.entity_id] = "turn_on";
+
         } else {
             //Heating should be stopped
-            if (device) {
-                const state = states.find(state => state.entity_id === device.entity_id);
-                if (state && state.state && state.state !== "off") {
-                    operateSwitch("turn_off", device.entity_id);
-                }
+            if (deviceStates[device.entity_id] && deviceStates[device.entity_id] === "turn_on") {
+                //Keep device on if any event suggests device should be on
+            } else {
+                deviceStates[device.entity_id] = "turn_off";
+            }
+            //operateSwitch("turn_off", device.entity_id);
+        }
+
+    })
+    //Toggle devices after checking event states
+    for (const key in deviceStates) {
+        if (Object.prototype.hasOwnProperty.call(deviceStates, key)) {
+            const state = deviceStates[key];
+
+            const currentState = states.find(currentState => currentState.entity_id === key);
+            if (currentState && currentState.state && currentState.state === "on" && state === "turn_off") {
+                operateSwitch(state, key);
+            }
+            if (currentState && currentState.state && currentState.state === "off" && state === "turn_on") {
+                operateSwitch(state, key);
             }
         }
-    })
+    }
     saveSettings()
 }
 setTimeout(handleCarHeaterEvents, 10000)
