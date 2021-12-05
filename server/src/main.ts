@@ -280,7 +280,7 @@ function handleCarHeaterEvents() {
 
                             const event_tags = getTags(ev.summary);
                             if (tags && event_tags.length > 0 && event_tags.find(t => tags.includes(t))) {
-                                if (!recurring_event && dt.getTime() > eventStart.getTime() - (1000 * 60 * 60 * 24) && eventEnd.getTime() > dt.getTime()) {
+                                if (!recurring_event && dt.getTime() > eventStart.getTime() - (1000 * 60 * 60 * 24) && (eventStart.getTime() + 5 * 60 * 1000) > dt.getTime()) {
                                     //console.log(`Heatingevent starting in ${ev.start.getTime() - totalHeatingStartBeforeTime - dt.getTime()}`)
                                     const startTime = eventStart.getTime() - totalHeatingStartBeforeTime;
                                     const endTime = eventStart.getTime() - startBeforeMS + endAfterStartMS;
@@ -294,21 +294,23 @@ function handleCarHeaterEvents() {
                                         device: settings.devices.find(d => d.uuid === device_uuid)
                                     };
                                     upComingEvents.push(heatingEvent)
-                                    eventsTemp.push(heatingEvent)
+                                    if (dt.getTime() > startTime) { //Start pushing event to switch logic
+                                        eventsTemp.push(heatingEvent)
+                                    }
                                 }
                                 if (recurring_event) {
                                     const weekDays = ev.rrule.options.byweekday;
                                     const excluded_dates = ev.exdate || [];
                                     const until = ev.rrule.options.until || undefined;
+                                    eventStart.setUTCFullYear(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate());//Switch recurring event start time to current day
                                     if (weekDays && weekDays.length > 0//Only handle events by weekdays
-                                        && eventStart.getTime() - (1000 * 60 * 60 * 24) < dt.getTime()//event has begun
+                                        && eventStart.getTime() - (1000 * 60 * 60 * 24) < dt.getTime()//Upcoming event
                                         && (until ? until.getTime() > dt.getTime() : true)//Recurring event has not ended
-                                        && weekDays.includes(dt.getUTCDay() - 1)//Event should occur today
+                                        && weekDays.includes(dt.getUTCDay() + 1)//Event should occur today
                                         && !excluded_dates.find(ex => new Date(ex).toDateString() === dt.toDateString())//Event is not excluded
                                     ) {
                                         //Set this event start variable to "today"
                                         const eventDuration = eventEnd.getTime() - eventStart.getTime();
-                                        eventStart.setUTCFullYear(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate());
                                         eventEnd = new Date(eventStart.getTime() + eventDuration);
                                         //run normal heater event code
                                         const startTime = eventStart.getTime() - totalHeatingStartBeforeTime;
@@ -323,7 +325,9 @@ function handleCarHeaterEvents() {
                                             device: settings.devices.find(d => d.uuid === device_uuid)
                                         };
                                         upComingEvents.push(heatingEvent)
-                                        eventsTemp.push(heatingEvent)
+                                        if (dt.getTime() > startTime) { //Start pushing event to switch logic
+                                            eventsTemp.push(heatingEvent)
+                                        }
                                     }
 
                                 }
