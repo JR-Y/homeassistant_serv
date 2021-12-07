@@ -303,10 +303,19 @@ function handleCarHeaterEvents() {
                                     const excluded_dates = ev.exdate || [];
                                     const until = ev.rrule.options.until || undefined;
                                     eventStart.setUTCFullYear(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate());//Switch recurring event start time to current day
+                                    //console.log(ev.summary)
+                                    //console.log(eventStart.getTime() - (1000 * 60 * 60 * 24) < dt.getTime())
+                                    //console.log((until ? until.getTime() > dt.getTime() : true))
+                                    //console.log(weekDays.includes(dt.getUTCDay() - 1))
+                                    //console.log(weekDays)
+                                    //console.log(dt.getUTCDay() - 1)
+                                    const weekday = dt.getUTCDay() - 1 !== -1 ? dt.getUTCDay() - 1 : 6;
+                                    //console.log(weekday)
+                                    //console.log(!excluded_dates.find(ex => new Date(ex).toDateString() === dt.toDateString()))
                                     if (weekDays && weekDays.length > 0//Only handle events by weekdays
                                         && eventStart.getTime() - (1000 * 60 * 60 * 24) < dt.getTime()//Upcoming event
                                         && (until ? until.getTime() > dt.getTime() : true)//Recurring event has not ended
-                                        && weekDays.includes(dt.getUTCDay() + 1)//Event should occur today
+                                        && weekDays.includes(weekday)//Event should occur today
                                         && !excluded_dates.find(ex => new Date(ex).toDateString() === dt.toDateString())//Event is not excluded
                                     ) {
                                         //Set this event start variable to "today"
